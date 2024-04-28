@@ -8,22 +8,32 @@ authors = [
 requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "MIT"}
+dependencies = []
 
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
 
-[project.dev-dependencies]
-pytest = "~=8.2.0"
-black = "~=24.4.2"
-flake8 = "~=7.0.0"
-isort = "~=5.13.2"
-mypy = "~=0.910.0"
-sphinx = "~=7.3.7"
-
+[tool.pdm.dev-dependencies]
+test = ["pytest"]
+lint = ["black", "flake8", "isort", "mypy"]
+doc = ["sphinx"]
 
 [tool.pdm]
 distribution = true
 
 [tool.pdm.scripts]
 test = "pytest tests"
+black = "black net_friction/ tests/"
+black-check = "black --check net_friction/ tests/"
+flake8 = "flake8 net_friction tests"
+flake8-check = "flake8 --count net_friction tests"
+isort = "isort net_friction tests"
+isort-check = "isort --check-only net_friction tests"
+mypy = "mypy net_friction tests"
+mypy-check = "mypy --check net_friction tests"
+lint = {composite = ["black", "flake8", "isort", "mypy"]}
+lint-check = {composite = ["black-check", "flake8-check", "isort-check", "mypy-check"]}
+
+[tool.flake8]
+max-line-length = 120

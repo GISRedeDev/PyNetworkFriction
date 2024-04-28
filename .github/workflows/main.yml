@@ -21,18 +21,9 @@ jobs:
     - name: Install linters and type checker
       run: |
         pdm add --dev black flake8 isort mypy
-    - name: Check code formatting with black
+    - name: Check code formatting and linting
       run: |
-        pdm run black --check .
-    - name: Check imports with isort
-      run: |
-        pdm run isort --check-only .
-    - name: Lint with flake8
-      run: |
-        pdm run flake8 .
-    - name: Type check with mypy
-      run: |
-        pdm run mypy .
+        pdm lint-check
     - name: Run tests
       run: |
-        pdm run test
+        pdm test
