@@ -24,3 +24,6 @@ sphinx = "~=7.3.7"
 
 [tool.pdm]
 distribution = true
+
+[tool.pdm.scripts]
+test = "pytest tests"
