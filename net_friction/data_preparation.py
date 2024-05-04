@@ -1,4 +1,3 @@
-
 # - ROADS ---------------------------------------------------------------------
 # Read shapefile or geopackage and subset by classification
 
@@ -20,4 +19,3 @@
 # Save the data to a csv
 
 # Convert to point dataset
-
