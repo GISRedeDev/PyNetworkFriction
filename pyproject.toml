@@ -8,7 +8,9 @@ authors = [
 requires-python = ">=3.11"
 readme = "README.md"
 license = {text = "MIT"}
-dependencies = []
+dependencies = [
+    "geopandas>=0.14.4",
+]
 
 [build-system]
 requires = ["pdm-backend"]
