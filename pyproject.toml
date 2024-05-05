@@ -10,6 +10,9 @@ readme = "README.md"
 license = {text = "MIT"}
 dependencies = [
     "geopandas>=0.14.4",
+    "momepy>=0.7.0",
+    "pandana>=0.7",
+    "networkx>=3.3",
 ]
 
 [build-system]

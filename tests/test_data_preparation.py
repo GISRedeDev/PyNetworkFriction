@@ -1,6 +1,9 @@
 import geopandas as gpd
+import networkx as nx
+import pandana as pdna
 from shapely.geometry import LineString
-from net_friction.data_preparation import fix_topology
+
+from net_friction.data_preparation import fix_topology, make_graph
 
 
 def test_get_roads_data(get_test_roads_data_subset_and_projected):
@@ -29,3 +32,22 @@ def test_fix_topology():
     assert isinstance(result, gpd.GeoDataFrame)
     assert result.crs == "EPSG:6383"
     assert "length" in result.columns
+
+
+def convert_pdna_to_nx(pdna_network, edges):
+    G = nx.Graph()
+    for node_id in pdna_network.node_ids:
+        G.add_node(node_id)
+    for edge in edges.itertuples():
+        G.add_edge(edge.node_start, edge.node_end)
+    return G
+
+
+def test_make_graph(topology_fixed):
+    net, edges = make_graph(topology_fixed)
+    assert isinstance(net, pdna.Network)
+    assert isinstance(edges, gpd.GeoDataFrame)
+    assert len(list(nx.connected_components(convert_pdna_to_nx(net, edges)))) == 1
+    assert "length" in edges.columns
+    assert "node_start" in edges.columns
+    assert "node_end" in edges.columns

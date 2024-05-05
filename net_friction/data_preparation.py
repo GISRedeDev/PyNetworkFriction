@@ -1,6 +1,9 @@
 from pathlib import Path
 
 import geopandas as gpd  # type: ignore
+import momepy
+import networkx as nx
+import pandana as pdna
 from shapely.ops import unary_union  # type: ignore
 
 
@@ -41,7 +44,23 @@ def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000):
     return gdf_roads
 
 
-# Make the graph objects
+def make_graph(gdf: gpd.GeoDataFrame) -> pdna.Network:
+    G_prep = momepy.gdf_to_nx(gdf, approach="primal")
+    components = list(nx.connected_components(G_prep))
+    largest_component = max(components, key=len)
+    G = G_prep.subgraph(largest_component)
+
+    nodes, edges, _ = momepy.nx_to_gdf(G, points=True, lines=True, spatial_weights=True)
+    net = pdna.Network(
+        nodes.geometry.x,
+        nodes.geometry.y,
+        edges.node_start,
+        edges.node_end,
+        edges[["length"]],
+    )
+    net.precompute(5000)
+    return net, edges
+
 
 # - ROADS ---------------------------------------------------------------------
 
