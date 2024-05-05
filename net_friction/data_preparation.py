@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import geopandas as gpd  # type: ignore
+from shapely.ops import unary_union  # type: ignore
 
 
 def get_roads_data(
@@ -28,7 +29,17 @@ def get_roads_data(
     return roads
 
 
-# Fix topology and save file or return gdf
+def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000):
+    gdf = gdf.to_crs(f"EPSG:{crs}")
+    merged = unary_union(gdf.geometry)
+    geom = merged.segmentize(max_segment_length=len_segments)
+    roads_multi = gpd.GeoDataFrame(
+        data={"id": [1], "geometry": [geom]}, crs=f"EPSG:{crs}"
+    )
+    gdf_roads = roads_multi.explode(ignore_index=True)
+    gdf_roads["length"] = gdf_roads.length
+    return gdf_roads
+
 
 # Make the graph objects
 
