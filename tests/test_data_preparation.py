@@ -1,5 +1,4 @@
 import geopandas as gpd
-import pytest
 from shapely.geometry import LineString
 from net_friction.data_preparation import fix_topology
 
