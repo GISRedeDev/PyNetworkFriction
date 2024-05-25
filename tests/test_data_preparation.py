@@ -74,7 +74,7 @@ def test_get_weighted_centroid():
     raster_path = "tests/test_data/ukr_ppp.tif"
     gdf = gdf[gdf.admin_level == 2]
     result = get_weighted_centroid(gdf, raster_path)
-    gdf_result = gpd.GeoDataFrame(result, columns=["geometry"])
-    joined = gpd.sjoin(gdf_result, gdf, op="within")
+    gdf_result = gpd.GeoDataFrame(result, columns=["geometry"], crs="EPSG:4326")
+    joined = gpd.sjoin(gdf_result, gdf, predicate="within")
     assert len(joined) == len(gdf_result)
     assert len(gdf) == len(result)
