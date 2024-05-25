@@ -1,15 +1,14 @@
 from pathlib import Path
 
 import geopandas as gpd  # type: ignore
-import pandas as pd  # type: ignore
 import momepy
 import networkx as nx
 import numpy as np
 import pandana as pdna
 import rioxarray
-from xarray import DataArray
 from shapely.geometry import Point
 from shapely.ops import unary_union  # type: ignore
+from xarray import DataArray
 
 from .datatypes import WeightingMethod
 
@@ -74,7 +73,7 @@ def convert_pixels_to_points(raster: Path, polygon: gpd.GeoSeries) -> gpd.GeoDat
     assert isinstance(raster_data, DataArray)
     raster_data_clipped = raster_data.rio.clip([polygon.geometry])
     try:
-        assert raster_data_clipped.rio.crs.to_string() == 'EPSG:4326'
+        assert raster_data_clipped.rio.crs.to_string() == "EPSG:4326"
     except AssertionError:
         raise ValueError("Raster crs is not EPSG:4326")
     x_coords = raster_data_clipped.x.values
@@ -84,17 +83,17 @@ def convert_pixels_to_points(raster: Path, polygon: gpd.GeoSeries) -> gpd.GeoDat
     y_flat = y_mesh.flatten()
     values_flat = raster_data_clipped.values.flatten()
     gdf = gpd.GeoDataFrame(
-            {'Value': values_flat},
-            geometry=gpd.points_from_xy(x_flat, y_flat),
-            crs=raster_data.rio.crs.to_string()
-        )
+        {"Value": values_flat},
+        geometry=gpd.points_from_xy(x_flat, y_flat),
+        crs=raster_data.rio.crs.to_string(),
+    )
     return gdf[gdf.Value != raster_data_clipped.rio.nodata]
 
 
 def get_weighted_centroid(
-        gdf: gpd.GeoDataFrame,
-        raster: Path,
-    ) -> gpd.GeoSeries:
+    gdf: gpd.GeoDataFrame,
+    raster: Path,
+) -> gpd.GeoSeries:
     if gdf.crs.to_epsg() != 4326:
         gdf = gdf.to_crs(4326)
     centroids = []
@@ -107,15 +106,16 @@ def get_weighted_centroid(
 
 
 def get_source_destination_points(
-        boundaries: gpd.GeoDataFrame,
-        weighting_method: WeightingMethod,
-        raster: Path | None = None,
-    ) -> gpd.GeoDataFrame:
+    boundaries: gpd.GeoDataFrame,
+    weighting_method: WeightingMethod,
+    raster: Path | None = None,
+) -> gpd.GeoDataFrame:
     if weighting_method is WeightingMethod.CENTROID:
         boundaries["geometry"] = boundaries.representative_point()
     elif weighting_method is WeightingMethod.WEIGHTED and raster is not None:
         boundaries["geometry"] = get_weighted_centroid(boundaries, raster)
     return boundaries[["admin_code_field", "geometry"]]
+
 
 # - BOUNDARIES ---------------------------------------------------------------------
 # Read shapefile or geopackage and subset by administrative level
