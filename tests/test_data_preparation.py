@@ -3,12 +3,9 @@ import networkx as nx
 import pandana as pdna
 from shapely.geometry import LineString
 
-from net_friction.data_preparation import (
-    convert_pixels_to_points,
-    fix_topology,
-    get_weighted_centroid,
-    make_graph,
-)
+from net_friction.data_preparation import (convert_pixels_to_points,
+                                           fix_topology, get_weighted_centroid,
+                                           make_graph)
 
 
 def test_get_roads_data(get_test_roads_data_subset_and_projected):
