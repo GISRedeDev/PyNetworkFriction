@@ -3,7 +3,12 @@ import networkx as nx
 import pandana as pdna
 from shapely.geometry import LineString
 
-from net_friction.data_preparation import fix_topology, make_graph
+from net_friction.data_preparation import (
+    fix_topology,
+    make_graph,
+    convert_pixels_to_points,
+    get_weighted_centroid
+)
 
 
 def test_get_roads_data(get_test_roads_data_subset_and_projected):
@@ -44,10 +49,32 @@ def convert_pdna_to_nx(pdna_network, edges):
 
 
 def test_make_graph(topology_fixed):
-    net, edges = make_graph(topology_fixed)
+    net, edges = make_graph(topology_fixed, precompute_distance=500)
     assert isinstance(net, pdna.Network)
     assert isinstance(edges, gpd.GeoDataFrame)
     assert len(list(nx.connected_components(convert_pdna_to_nx(net, edges)))) == 1
     assert "length" in edges.columns
     assert "node_start" in edges.columns
     assert "node_end" in edges.columns
+
+
+def test_convert_pixels_to_points():
+    raster_path = "tests/test_data/ukr_ppp.tif"
+    gdf = gpd.read_file("tests/test_data/UKR_TEST_BOUNDARIES.gpkg")
+    gdf = gdf[gdf.admin_level == 2]
+    first_row = gdf.iloc[0]
+    result = convert_pixels_to_points(raster_path, first_row)
+    assert isinstance(result, gpd.GeoDataFrame)
+    assert result.crs == "EPSG:4326"
+    assert -9999 not in result["Value"].unique()
+
+
+def test_get_weighted_centroid():
+    gdf = gpd.read_file("tests/test_data/UKR_TEST_BOUNDARIES.gpkg")
+    raster_path = "tests/test_data/ukr_ppp.tif"
+    gdf = gdf[gdf.admin_level == 2]
+    result = get_weighted_centroid(gdf, raster_path)
+    gdf_result = gpd.GeoDataFrame(result, columns=["geometry"])
+    joined = gpd.sjoin(gdf_result, gdf, op="within")
+    assert len(joined) == len(gdf_result)
+    assert len(gdf) == len(result)

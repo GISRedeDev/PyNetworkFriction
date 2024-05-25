@@ -1,10 +1,17 @@
 from pathlib import Path
 
 import geopandas as gpd  # type: ignore
+import pandas as pd  # type: ignore
 import momepy
 import networkx as nx
+import numpy as np
 import pandana as pdna
+import rioxarray
+from xarray import DataArray
+from shapely.geometry import Point
 from shapely.ops import unary_union  # type: ignore
+
+from .datatypes import WeightingMethod
 
 
 def get_roads_data(
@@ -44,7 +51,7 @@ def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000):
     return gdf_roads
 
 
-def make_graph(gdf: gpd.GeoDataFrame) -> pdna.Network:
+def make_graph(gdf: gpd.GeoDataFrame, precompute_distance: int = 5000) -> pdna.Network:
     G_prep = momepy.gdf_to_nx(gdf, approach="primal")
     components = list(nx.connected_components(G_prep))
     largest_component = max(components, key=len)
@@ -58,11 +65,57 @@ def make_graph(gdf: gpd.GeoDataFrame) -> pdna.Network:
         edges.node_end,
         edges[["length"]],
     )
-    net.precompute(5000)
+    net.precompute(precompute_distance)
     return net, edges
 
 
-# - ROADS ---------------------------------------------------------------------
+def convert_pixels_to_points(raster: Path, polygon: gpd.GeoSeries) -> gpd.GeoDataFrame:
+    raster_data = rioxarray.open_rasterio(raster)[0]
+    assert isinstance(raster_data, DataArray)
+    raster_data_clipped = raster_data.rio.clip([polygon.geometry])
+    try:
+        assert raster_data_clipped.rio.crs.to_string() == 'EPSG:4326'
+    except AssertionError:
+        raise ValueError("Raster crs is not EPSG:4326")
+    x_coords = raster_data_clipped.x.values
+    y_coords = raster_data_clipped.y.values
+    x_mesh, y_mesh = np.meshgrid(x_coords, y_coords)
+    x_flat = x_mesh.flatten()
+    y_flat = y_mesh.flatten()
+    values_flat = raster_data_clipped.values.flatten()
+    gdf = gpd.GeoDataFrame(
+            {'Value': values_flat},
+            geometry=gpd.points_from_xy(x_flat, y_flat),
+            crs=raster_data.rio.crs.to_string()
+        )
+    return gdf[gdf.Value != raster_data_clipped.rio.nodata]
+
+
+def get_weighted_centroid(
+        gdf: gpd.GeoDataFrame,
+        raster: Path,
+    ) -> gpd.GeoSeries:
+    if gdf.crs.to_epsg() != 4326:
+        gdf = gdf.to_crs(4326)
+    centroids = []
+    for polygon in gdf.itertuples():
+        points = convert_pixels_to_points(raster, polygon)
+        weighted_x = np.average(points.geometry.x, weights=points.Value)
+        weighted_y = np.average(points.geometry.y, weights=points.Value)
+        centroids.append(Point(weighted_x, weighted_y))
+    return centroids
+
+
+def get_source_destination_points(
+        boundaries: gpd.GeoDataFrame,
+        weighting_method: WeightingMethod,
+        raster: Path | None = None,
+    ) -> gpd.GeoDataFrame:
+    if weighting_method is WeightingMethod.CENTROID:
+        boundaries["geometry"] = boundaries.representative_point()
+    elif weighting_method is WeightingMethod.WEIGHTED and raster is not None:
+        boundaries["geometry"] = get_weighted_centroid(boundaries, raster)
+    return boundaries[["admin_code_field", "geometry"]]
 
 # - BOUNDARIES ---------------------------------------------------------------------
 # Read shapefile or geopackage and subset by administrative level
