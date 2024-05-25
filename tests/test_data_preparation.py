@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import geopandas as gpd
 import networkx as nx
 import pandana as pdna
@@ -59,7 +61,7 @@ def test_make_graph(topology_fixed):
 
 
 def test_convert_pixels_to_points():
-    raster_path = "tests/test_data/ukr_ppp.tif"
+    raster_path = Path("tests/test_data/ukr_ppp.tif")
     gdf = gpd.read_file("tests/test_data/UKR_TEST_BOUNDARIES.gpkg")
     gdf = gdf[gdf.admin_level == 2]
     first_row = gdf.iloc[0]
@@ -71,7 +73,7 @@ def test_convert_pixels_to_points():
 
 def test_get_weighted_centroid():
     gdf = gpd.read_file("tests/test_data/UKR_TEST_BOUNDARIES.gpkg")
-    raster_path = "tests/test_data/ukr_ppp.tif"
+    raster_path = Path("tests/test_data/ukr_ppp.tif")
     gdf = gdf[gdf.admin_level == 2]
     result = get_weighted_centroid(gdf, raster_path)
     gdf_result = gpd.GeoDataFrame(result, columns=["geometry"], crs="EPSG:4326")
