@@ -1,3 +1,4 @@
+from itertools import combinations
 from pathlib import Path
 
 import geopandas as gpd  # type: ignore
@@ -5,6 +6,7 @@ import momepy
 import networkx as nx
 import numpy as np
 import pandana as pdna
+import pandas as pd  # type: ignore
 import rioxarray
 from shapely.geometry import Point
 from shapely.ops import unary_union  # type: ignore
@@ -108,19 +110,27 @@ def get_weighted_centroid(
 def get_source_destination_points(
     boundaries: gpd.GeoDataFrame,
     weighting_method: WeightingMethod,
+    network: pdna.Network,
     raster: Path | None = None,
-) -> gpd.GeoDataFrame:
+    admin_code_field: str = "pcode",
+) -> pd.DataFrame:
     if weighting_method is WeightingMethod.CENTROID:
         boundaries["geometry"] = boundaries.representative_point()
     elif weighting_method is WeightingMethod.WEIGHTED and raster is not None:
         boundaries["geometry"] = get_weighted_centroid(boundaries, raster)
-    return boundaries[["admin_code_field", "geometry"]]
+    centroids_df = boundaries[[admin_code_field, "geometry"]].copy()
+    centroids_df["nodeID"] = network.get_node_ids(centroids_df.geometry.x, centroids_df.geometry.y)
+    row_combinations = list(combinations(centroids_df[['pcode', 'nodeID', 'geometry']].values, 2))
+    df_matrix = pd.DataFrame(row_combinations, columns=['from', 'to'])
+    df_matrix[['from_pcode', 'from_nodeID', 'from_centroid']] = pd.DataFrame(
+        df_matrix['from'].tolist(), index=df_matrix.index
+        )
+    df_matrix[['to_pcode', 'to_nodeID', 'to_centroid']] = pd.DataFrame(
+        df_matrix['to'].tolist(), index=df_matrix.index
+        )
+    df_matrix = df_matrix.drop(columns=['from', 'to'])
+    return df_matrix
 
-
-# - BOUNDARIES ---------------------------------------------------------------------
-# Read shapefile or geopackage and subset by administrative level
-
-# calculate the centroid based on pop or geometric centroid
 
 # ------ ACLED ---------------------------------------------------------------------
 # Access api and get the data for the dates required
