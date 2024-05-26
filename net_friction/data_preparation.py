@@ -119,16 +119,20 @@ def get_source_destination_points(
     elif weighting_method is WeightingMethod.WEIGHTED and raster is not None:
         boundaries["geometry"] = get_weighted_centroid(boundaries, raster)
     centroids_df = boundaries[[admin_code_field, "geometry"]].copy()
-    centroids_df["nodeID"] = network.get_node_ids(centroids_df.geometry.x, centroids_df.geometry.y)
-    row_combinations = list(combinations(centroids_df[['pcode', 'nodeID', 'geometry']].values, 2))
-    df_matrix = pd.DataFrame(row_combinations, columns=['from', 'to'])
-    df_matrix[['from_pcode', 'from_nodeID', 'from_centroid']] = pd.DataFrame(
-        df_matrix['from'].tolist(), index=df_matrix.index
-        )
-    df_matrix[['to_pcode', 'to_nodeID', 'to_centroid']] = pd.DataFrame(
-        df_matrix['to'].tolist(), index=df_matrix.index
-        )
-    df_matrix = df_matrix.drop(columns=['from', 'to'])
+    centroids_df["nodeID"] = network.get_node_ids(
+        centroids_df.geometry.x, centroids_df.geometry.y
+    )
+    row_combinations = list(
+        combinations(centroids_df[["pcode", "nodeID", "geometry"]].values, 2)
+    )
+    df_matrix = pd.DataFrame(row_combinations, columns=["from", "to"])
+    df_matrix[["from_pcode", "from_nodeID", "from_centroid"]] = pd.DataFrame(
+        df_matrix["from"].tolist(), index=df_matrix.index
+    )
+    df_matrix[["to_pcode", "to_nodeID", "to_centroid"]] = pd.DataFrame(
+        df_matrix["to"].tolist(), index=df_matrix.index
+    )
+    df_matrix = df_matrix.drop(columns=["from", "to"])
     return df_matrix
 
 

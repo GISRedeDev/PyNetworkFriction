@@ -1,9 +1,9 @@
 from pathlib import Path
-import pytest
 
 import geopandas as gpd
 import networkx as nx
 import pandana as pdna
+import pytest
 from shapely.geometry import LineString
 
 from net_friction.data_preparation import (
@@ -85,7 +85,9 @@ def test_get_weighted_centroid():
     assert len(gdf) == len(result)
 
 
-@pytest.mark.parametrize("weighting_method", [WeightingMethod.WEIGHTED, WeightingMethod.CENTROID])
+@pytest.mark.parametrize(
+    "weighting_method", [WeightingMethod.WEIGHTED, WeightingMethod.CENTROID]
+)
 def test_get_source_destination_points(topology_fixed, weighting_method):
     gdf = gpd.read_file("tests/test_data/UKR_TEST_BOUNDARIES.gpkg")
     raster_path = Path("tests/test_data/ukr_ppp.tif")
@@ -93,6 +95,14 @@ def test_get_source_destination_points(topology_fixed, weighting_method):
     gdf = gdf[gdf.admin_level == 2]
     result = get_source_destination_points(gdf, weighting_method, net, raster_path)
     assert len(result) == len(gdf) * (len(gdf) - 1) / 2
-    assert all(col in result.columns for col in [
-        'from_pcode', 'from_nodeID', 'from_centroid', 'to_pcode', 'to_nodeID', 'to_centroid'
-        ])
+    assert all(
+        col in result.columns
+        for col in [
+            "from_pcode",
+            "from_nodeID",
+            "from_centroid",
+            "to_pcode",
+            "to_nodeID",
+            "to_centroid",
+        ]
+    )
