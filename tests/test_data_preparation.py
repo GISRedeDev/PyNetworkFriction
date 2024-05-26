@@ -9,6 +9,7 @@ from shapely.geometry import LineString
 from net_friction.data_preparation import (
     convert_pixels_to_points,
     fix_topology,
+    get_acled_data_from_csv,
     get_source_destination_points,
     get_weighted_centroid,
     make_graph,
@@ -106,3 +107,28 @@ def test_get_source_destination_points(topology_fixed, weighting_method):
             "to_centroid",
         ]
     )
+
+
+@pytest.mark.parametrize("outpath", [None, "tests/test_data/test.gpkg"])
+def test_get_acled_data_from_csv(outpath):
+    acled_data = get_acled_data_from_csv(
+        "tests/test_data/ACLED.csv", 6383, outfile=outpath
+    )
+    expected_columns = [
+        "event_id_cnty",
+        "event_date",
+        "year",
+        "disorder_type",
+        "event_type",
+        "sub_event_type",
+        "latitude",
+        "longitude",
+        "fatalities",
+        "geometry",
+    ]
+    assert isinstance(acled_data, gpd.GeoDataFrame)
+    assert acled_data.crs == "EPSG:6383"
+    assert acled_data.columns.tolist() == expected_columns
+    if outpath:
+        assert Path(outpath).exists()
+        Path(outpath).unlink()

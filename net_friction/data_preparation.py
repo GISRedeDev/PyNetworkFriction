@@ -136,6 +136,48 @@ def get_source_destination_points(
     return df_matrix
 
 
+def subset_acled_data(
+    df: pd.DataFrame, crs: int, outfile: Path | str | None = None
+) -> pd.DataFrame:
+    df = df[
+        [
+            "event_id_cnty",
+            "event_date",
+            "year",
+            "disorder_type",
+            "event_type",
+            "sub_event_type",
+            "latitude",
+            "longitude",
+            "fatalities",
+        ]
+    ].copy()
+    df["geometry"] = gpd.points_from_xy(df.longitude, df.latitude)
+    gdf = gpd.GeoDataFrame(df, crs=f"EPSG:{crs}")
+    if outfile:
+        gdf.to_file(Path(outfile), layer="acled", driver="GPKG")
+    return gdf
+
+
+def get_acled_data_from_csv(
+    csv_path: Path | str,
+    crs: int,
+    outfile: Path | str | None = None,
+) -> gpd.GeoDataFrame:
+    df = pd.read_csv(Path(csv_path))
+    return subset_acled_data(df, crs, outfile=outfile)
+
+
+def get_acled_data_from_api(
+    start_date: str,
+    end_date: str,
+    crs: int,
+    outfile: Path | str | None = None,
+) -> gpd.GeoDataFrame:
+    # TODO: Implement this function
+    pass
+
+
 # ------ ACLED ---------------------------------------------------------------------
 # Access api and get the data for the dates required
 
