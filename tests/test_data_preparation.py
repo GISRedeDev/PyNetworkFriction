@@ -92,9 +92,11 @@ def test_get_weighted_centroid():
 def test_get_source_destination_points(topology_fixed, weighting_method):
     gdf = gpd.read_file("tests/test_data/UKR_TEST_BOUNDARIES.gpkg")
     raster_path = Path("tests/test_data/ukr_ppp.tif")
-    net, _ = make_graph(topology_fixed, precompute_distance=500)
+    net, edges = make_graph(topology_fixed, precompute_distance=500)
     gdf = gdf[gdf.admin_level == 2]
-    result = get_source_destination_points(gdf, weighting_method, net, raster_path)
+    result = get_source_destination_points(
+        gdf, weighting_method, net, edges.crs.to_epsg(), raster_path
+    )
     assert len(result) == len(gdf) * (len(gdf) - 1) / 2
     assert all(
         col in result.columns
