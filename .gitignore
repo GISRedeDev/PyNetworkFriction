@@ -4,3 +4,7 @@ test/test_data/
 .venv/
 .vscode/
 *__pycache__/
+
+*__pycache__/
+
+.vscode/
