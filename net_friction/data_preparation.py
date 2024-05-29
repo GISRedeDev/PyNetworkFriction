@@ -52,7 +52,9 @@ def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000):
     return gdf_roads
 
 
-def make_graph(gdf: gpd.GeoDataFrame, precompute_distance: int = 5000) -> tuple[pdna.Network], gpd.GeoDataFrame]:
+def make_graph(
+    gdf: gpd.GeoDataFrame, precompute_distance: int = 5000
+) -> tuple[pdna.Network, gpd.GeoDataFrame]:
     G_prep = momepy.gdf_to_nx(gdf, approach="primal")
     components = list(nx.connected_components(G_prep))
     largest_component = max(components, key=len)
