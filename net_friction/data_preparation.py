@@ -24,7 +24,7 @@ def get_roads_data(
 ) -> gpd.GeoDataFrame:
     file_path = Path(file_path)
     if file_path.suffix == ".shp":
-        roads = gpd.read_file(file_path, layer=layer)
+        roads = gpd.read_file(file_path)
     elif file_path.suffix == ".gpkg":
         roads = gpd.read_file(file_path, layer=layer)
     else:
@@ -52,7 +52,7 @@ def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000):
     return gdf_roads
 
 
-def make_graph(gdf: gpd.GeoDataFrame, precompute_distance: int = 5000) -> pdna.Network:
+def make_graph(gdf: gpd.GeoDataFrame, precompute_distance: int = 5000) -> tuple[pdna.Network], gpd.GeoDataFrame]:
     G_prep = momepy.gdf_to_nx(gdf, approach="primal")
     components = list(nx.connected_components(G_prep))
     largest_component = max(components, key=len)
