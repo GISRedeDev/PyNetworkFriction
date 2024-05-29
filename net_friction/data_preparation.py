@@ -8,7 +8,7 @@ import numpy as np
 import pandana as pdna
 import pandas as pd  # type: ignore
 import rioxarray
-from shapely.geometry import Point
+from shapely.geometry import LineString, Point
 from shapely.ops import unary_union  # type: ignore
 from xarray import DataArray
 
@@ -24,7 +24,7 @@ def get_roads_data(
 ) -> gpd.GeoDataFrame:
     file_path = Path(file_path)
     if file_path.suffix == ".shp":
-        roads = gpd.read_file(file_path, layer=layer)
+        roads = gpd.read_file(file_path)
     elif file_path.suffix == ".gpkg":
         roads = gpd.read_file(file_path, layer=layer)
     else:
@@ -52,7 +52,9 @@ def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000):
     return gdf_roads
 
 
-def make_graph(gdf: gpd.GeoDataFrame, precompute_distance: int = 5000) -> pdna.Network:
+def make_graph(
+    gdf: gpd.GeoDataFrame, precompute_distance: int = 5000
+) -> tuple[pdna.Network, gpd.GeoDataFrame]:
     G_prep = momepy.gdf_to_nx(gdf, approach="primal")
     components = list(nx.connected_components(G_prep))
     largest_component = max(components, key=len)
@@ -92,6 +94,19 @@ def convert_pixels_to_points(raster: Path, polygon: gpd.GeoSeries) -> gpd.GeoDat
     return gdf[gdf.Value != raster_data_clipped.rio.nodata]
 
 
+def adjust_weighted_centroid(polygon: gpd.GeoSeries, weighted_centroid: Point) -> Point:
+    """This will be called if the weighted centroid is not within the polygon."""
+    line = LineString([polygon.geometry.representative_point(), weighted_centroid])
+    intersection = line.intersection(polygon.geometry)
+    if intersection.geom_type == "LineString":
+        adjusted_centroid = intersection.interpolate(
+            intersection.project(weighted_centroid)
+        )
+    else:
+        adjusted_centroid = intersection
+    return adjusted_centroid
+
+
 def get_weighted_centroid(
     gdf: gpd.GeoDataFrame,
     raster: Path,
@@ -103,7 +118,12 @@ def get_weighted_centroid(
         points = convert_pixels_to_points(raster, polygon)
         weighted_x = np.average(points.geometry.x, weights=points.Value)
         weighted_y = np.average(points.geometry.y, weights=points.Value)
-        centroids.append(Point(weighted_x, weighted_y))
+        if not polygon.geometry.contains(Point(weighted_x, weighted_y)):
+            centroids.append(
+                adjust_weighted_centroid(polygon, Point(weighted_x, weighted_y))
+            )
+        else:
+            centroids.append(Point(weighted_x, weighted_y))
     return centroids
 
 
@@ -111,6 +131,7 @@ def get_source_destination_points(
     boundaries: gpd.GeoDataFrame,
     weighting_method: WeightingMethod,
     network: pdna.Network,
+    crs: int,
     raster: Path | None = None,
     admin_code_field: str = "pcode",
 ) -> pd.DataFrame:
@@ -118,6 +139,7 @@ def get_source_destination_points(
         boundaries["geometry"] = boundaries.representative_point()
     elif weighting_method is WeightingMethod.WEIGHTED and raster is not None:
         boundaries["geometry"] = get_weighted_centroid(boundaries, raster)
+    boundaries.to_crs(f"EPSG:{crs}", inplace=True)
     centroids_df = boundaries[[admin_code_field, "geometry"]].copy()
     centroids_df["nodeID"] = network.get_node_ids(
         centroids_df.geometry.x, centroids_df.geometry.y
@@ -153,7 +175,8 @@ def subset_acled_data(
         ]
     ].copy()
     df["geometry"] = gpd.points_from_xy(df.longitude, df.latitude)
-    gdf = gpd.GeoDataFrame(df, crs=f"EPSG:{crs}")
+    gdf = gpd.GeoDataFrame(df, crs="EPSG:4326")
+    gdf = gdf.to_crs(f"EPSG:{crs}")
     if outfile:
         gdf.to_file(Path(outfile), layer="acled", driver="GPKG")
     return gdf
@@ -176,11 +199,3 @@ def get_acled_data_from_api(
 ) -> gpd.GeoDataFrame:
     # TODO: Implement this function
     pass
-
-
-# ------ ACLED ---------------------------------------------------------------------
-# Access api and get the data for the dates required
-
-# Save the data to a csv
-
-# Convert to point dataset
