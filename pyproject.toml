@@ -32,6 +32,7 @@ distribution = true
 
 [tool.pdm.scripts]
 test = "pytest tests"
+test_integration = "pytest tests -m integration"
 black = "black net_friction/ tests/"
 black-check = "black --check net_friction/ tests/"
 flake8 = "flake8 net_friction tests"

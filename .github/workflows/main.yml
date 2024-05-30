@@ -26,4 +26,7 @@ jobs:
         pdm lint-check
     - name: Run tests
       run: |
-        pdm test
+        pdm test -m "not integration"
+    - name: Run integration tests
+      run: |
+        pdm test_integration
