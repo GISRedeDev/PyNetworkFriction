@@ -1,12 +1,15 @@
 from pathlib import Path
 
 import pytest
+
 from net_friction.table_production import process_data
+
 
 @pytest.mark.integration
 def test_integration():
     import warnings
-    warnings.filterwarnings('ignore', category=FutureWarning)
+
+    warnings.filterwarnings("ignore", category=FutureWarning)
     BASE = Path(__file__).resolve().parent.joinpath("test_data")
     OUTPUT = BASE.joinpath("integration_test_output")
     roads_data = BASE.joinpath("ROADS_TEST.shp")
@@ -40,4 +43,3 @@ def test_integration():
     assert distance_matrix.exists()
     assert incidents_in_routes.exists()
     assert areas_of_control_matrix.exists()
-

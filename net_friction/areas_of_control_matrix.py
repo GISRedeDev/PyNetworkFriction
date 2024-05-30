@@ -28,13 +28,17 @@ def calculate_src_dst_areas_of_control(
             centroids_df["in_occupied_area"] = False
         else:
             centroids_df["in_occupied_area"] = np.nan
-        occupied_area_dict = centroids_df.set_index("pcode")["in_occupied_area"].to_dict()
+        occupied_area_dict = centroids_df.set_index("pcode")[
+            "in_occupied_area"
+        ].to_dict()
 
         combinations = pd.DataFrame(
             list(itertools.product(centroids_df["pcode"], repeat=2)),
             columns=["from_pcode", "to_pcode"],
         )
-        combinations["src_occupied"] = combinations["from_pcode"].map(occupied_area_dict)
+        combinations["src_occupied"] = combinations["from_pcode"].map(
+            occupied_area_dict
+        )
         combinations["dst_occupied"] = combinations["to_pcode"].map(occupied_area_dict)
         combinations["date"] = day
         areas_of_control_df_list.append(combinations)
