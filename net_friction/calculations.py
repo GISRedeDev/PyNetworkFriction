@@ -130,7 +130,7 @@ def get_incidents_in_route(
     pois_df: pd.DataFrame,
     acled: gpd.GeoDataFrame,
 ) -> pd.DataFrame:
-    acled.reset_index(inplace=True)
+    acled = acled.reset_index()
     route_nodes = row.shortest_path_nodes
     poi_nodes = pois_df[pois_df.nodeID.isin(route_nodes)]
     acled_ids = poi_nodes.poi_list.explode().dropna().unique().tolist()
