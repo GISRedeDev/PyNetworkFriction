@@ -9,7 +9,7 @@ from net_friction.data_preparation import get_weighted_centroid
 def test_calculate_src_dst_areas_of_control():
     boundaries_df = gpd.read_file("tests/test_data/UKR_TEST_BOUNDARIES.gpkg")
     boundaries_df = boundaries_df[boundaries_df.admin_level == 3]
-    raster = "tests/test_data/ukr_ppp.tif"
+    raster = Path("tests/test_data/ukr_ppp.tif")
     centroids_df = boundaries_df.copy()
     centroids_df["geometry"] = get_weighted_centroid(boundaries_df, raster)
     result = calculate_src_dst_areas_of_control(
