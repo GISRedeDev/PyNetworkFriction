@@ -10,7 +10,7 @@ from net_friction.calculations import (
     calculate_straight_line_distances,
     get_incidents_in_route,
     get_pois_with_nodes,
-    get_route_geoms,
+    get_route_geoms_ids,
 )
 from net_friction.data_preparation import get_acled_data_from_csv, make_graph
 
@@ -46,15 +46,14 @@ def test_calculate_routes_and_route_distances(make_src_dst_matrix, topology_fixe
     assert to_node == shortest_path_nodes[0][-1]
 
 
-def test_get_route_geoms(routes_with_distances, topology_fixed):
+def test_get_route_geoms_ids(routes_with_distances, topology_fixed):
     _, edges = make_graph(topology_fixed, precompute_distance=500)
     route_df = routes_with_distances
-    route_df = get_route_geoms(route_df, edges)
+    route_df = get_route_geoms_ids(route_df, edges)
     route_ddf = dd.from_pandas(route_df, npartitions=1)
     edges_dg = dg.from_geopandas(edges, npartitions=1)
-    route_ddf_result = get_route_geoms(route_ddf, edges_dg)
-    assert "edge_geometry" in route_df.columns
-    assert "edge_geometries_ids" not in route_df.columns
+    route_ddf_result = get_route_geoms_ids(route_ddf, edges_dg)
+    assert "edge_geometries_ids" in route_df.columns
     assert isinstance(route_ddf_result, dd.DataFrame)
 
 
@@ -72,12 +71,12 @@ def test_get_pois_with_nodes(make_src_dst_matrix, topology_fixed):
 
 def test_get_incidents_in_route(routes_with_distances, topology_fixed):
     net, edges = make_graph(topology_fixed, precompute_distance=500)
-    route_df = get_route_geoms(routes_with_distances, edges)
+    route_df = get_route_geoms_ids(routes_with_distances, edges)
     acled_data = get_acled_data_from_csv("tests/test_data/ACLED.csv", 6383)
     pois_df = get_pois_with_nodes(acled_data, net, max_dist=5000)
     incident_list = []
     for row in route_df.itertuples():
-        incident_list.append(get_incidents_in_route(row, pois_df, acled_data))
+        incident_list.append(get_incidents_in_route(row, pois_df, acled_data, edges))
     incident_df = pd.concat(incident_list)
     assert "from_pcode" in incident_df.columns
     assert "to_pcode" in incident_df.columns

@@ -12,7 +12,7 @@ from .calculations import (
     calculate_straight_line_distances,
     get_incidents_in_route,
     get_pois_with_nodes,
-    get_route_geoms,
+    get_route_geoms_ids,
 )
 from .data_preparation import (
     fix_topology,
@@ -67,12 +67,12 @@ def process_data(
     df_matrix["shortest_path_nodes"] = shortest_path_nodes
     df_matrix["shortest_path_lengths"] = shortest_path_lengths
     acled = get_acled_data_from_csv(aceld_data, crs)
-    df_matrix = get_route_geoms(df_matrix.copy(), edges)
+    df_matrix = get_route_geoms_ids(df_matrix.copy(), edges)
     pois_df = get_pois_with_nodes(acled, net)
     incidents_in_routes_list = []
     for row in df_matrix.itertuples():
         incidents_in_routes_list.append(
-            get_incidents_in_route(row, pois_df, acled.copy())
+            get_incidents_in_route(row, pois_df, acled.copy(), edges)
         )
     incidents_in_routes_df = pd.concat(incidents_in_routes_list)
     distances_df = df_matrix[
@@ -141,11 +141,11 @@ def process_data_dask(
     df_matrix = dd.from_pandas(df_matrix, npartitions=10)
     acled = get_acled_data_from_csv(aceld_data, crs)
     acled = dask_gpd.from_geopandas(acled, npartitions=10)
-    df_matrix = get_route_geoms(df_matrix.copy(), edges)
+    df_matrix = get_route_geoms_ids(df_matrix.copy(), edges)
     pois_df = get_pois_with_nodes(acled, net)
     pois_df = dd.from_pandas(pois_df, npartitions=10)
     delayed_results = [
-        delayed(get_incidents_in_route)(row, pois_df, acled)
+        delayed(get_incidents_in_route)(row, pois_df, acled, edges)
         for row in df_matrix.itertuples(index=False)
     ]
     incidents_in_routes_list = compute(*delayed_results)

@@ -74,29 +74,20 @@ def chunked_unary_union(
     return shapely.ops.unary_union(unions)
 
 
-def get_route_geoms(
+def get_route_geoms_ids(
     route_df: pd.DataFrame | dd.DataFrame,
     edges: gpd.GeoDataFrame | dg.GeoDataFrame,
 ) -> pd.DataFrame | dd.DataFrame:
-    # FIXME What if these geoms were created on the fly when calculating distances?
-    # and incidents in route?
     edges_dict = make_edges_dict(edges)
     if isinstance(route_df, dd.DataFrame):
         meta = pd.Series(dtype="object")
         route_df["edge_geometries_ids"] = route_df.map_partitions(
             lambda df: df.apply(nodes_to_edges, args=(edges_dict,), axis=1), meta=meta
         )
-        route_df["edge_geometry"] = route_df.map_partitions(
-            lambda df: df.apply(edge_geometries, args=(edges,), axis=1), meta=meta
-        )
     else:
         route_df["edge_geometries_ids"] = route_df.apply(
             nodes_to_edges, args=(edges_dict,), axis=1
         )
-        route_df["edge_geometry"] = route_df.apply(
-            edge_geometries, args=(edges,), axis=1
-        )
-    route_df = route_df.drop(columns=["edge_geometries_ids"])
     return route_df
 
 
@@ -129,6 +120,7 @@ def get_incidents_in_route(
     row: pd.Series,
     pois_df: pd.DataFrame,
     acled: gpd.GeoDataFrame,
+    edges: gpd.GeoDataFrame,
 ) -> pd.DataFrame:
     acled = acled.reset_index()
     route_nodes = row.shortest_path_nodes
@@ -139,17 +131,17 @@ def get_incidents_in_route(
         if not incidents_in_route.empty:
             incidents_in_route["from_pcode"] = row.from_pcode
             incidents_in_route["to_pcode"] = row.to_pcode
-            incidents_in_route["distance_to_route"] = (
-                incidents_in_route.geometry.distance(row.edge_geometry)
+            edge_geom = edge_geometries(row, edges)
+            incidents_in_route["distance_to_route"] = edge_geom.distance(
+                incidents_in_route.geometry
             )
             return incidents_in_route
-    else:
-        return pd.DataFrame(
-            columns=[
-                "event_id_cnty",
-                "geometry",
-                "from_pcode",
-                "to_pcode",
-                "distance_to_route",
-            ]
-        )
+    return pd.DataFrame(
+        columns=[
+            "event_id_cnty",
+            "geometry",
+            "from_pcode",
+            "to_pcode",
+            "distance_to_route",
+        ]
+    )
