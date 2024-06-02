@@ -1,9 +1,12 @@
+import ast
+from pathlib import Path
 import warnings
 from typing import Tuple
 
 import dask.dataframe as dd
 import dask_geopandas as dg
 import geopandas as gpd
+import numpy as np
 import pandana as pdna
 import pandas as pd
 import shapely
@@ -53,6 +56,8 @@ def make_edges_dict(edges: gpd.GeoDataFrame) -> dict[tuple[int, int], int]:
 
 def nodes_to_edges(row, edges_dict: dict) -> list[int]:
     nodes = row.shortest_path_nodes
+    if isinstance(nodes, str):  # Dask bug
+        nodes = [int(node) for node in nodes.replace("[", "").replace("]", "").split()]
     return [edges_dict[(nodes[i - 1], nodes[i])] for i in range(1, len(nodes))]
 
 
@@ -94,9 +99,12 @@ def get_route_geoms_ids(
 def get_pois_with_nodes(
     acled: gpd.GeoDataFrame, net: pdna.Network, max_dist: int = 1000
 ) -> pd.DataFrame:
+    acled = acled.compute()
     acled.set_index("event_id_cnty", inplace=True)
-    max_items = int(max_dist / 10)
-    num_pois = int(max_dist / 10)
+    max_items = 500  # TODO: Is this catching everything?
+    num_pois = 500
+    max_dist = max_dist * 3  # This is because in some instances, pois within route buffers are still far from nodes,
+    # resulting in them not being counted
     net.set_pois(
         category="incidents",
         maxdist=max_dist,
@@ -124,7 +132,13 @@ def get_incidents_in_route(
 ) -> pd.DataFrame:
     acled = acled.reset_index()
     route_nodes = row.shortest_path_nodes
+    if isinstance(route_nodes, str):
+        route_nodes = [int(node) for node in route_nodes.replace("[", "").replace("]", "").split()]
     poi_nodes = pois_df[pois_df.nodeID.isin(route_nodes)]
+    if isinstance(poi_nodes.iloc[0].poi_list, str):
+        poi_nodes["poi_list"] = poi_nodes["poi_list"].apply(
+            lambda x: ast.literal_eval(x)
+        )
     acled_ids = poi_nodes.poi_list.explode().dropna().unique().tolist()
     if len(acled_ids) > 0:
         incidents_in_route = acled[acled.event_id_cnty.isin(acled_ids)].copy()

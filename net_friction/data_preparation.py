@@ -48,6 +48,7 @@ def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000):
         data={"id": [1], "geometry": [geom]}, crs=f"EPSG:{crs}"
     )
     gdf_roads = roads_multi.explode(ignore_index=True)
+    gdf_roads.crs = f"EPSG:{crs}"
     gdf_roads["length"] = gdf_roads.length
     return gdf_roads
 
@@ -61,6 +62,7 @@ def make_graph(
     G = G_prep.subgraph(largest_component)
 
     nodes, edges, _ = momepy.nx_to_gdf(G, points=True, lines=True, spatial_weights=True)
+    edges.crs = gdf.crs
     net = pdna.Network(
         nodes.geometry.x,
         nodes.geometry.y,
@@ -103,7 +105,7 @@ def adjust_weighted_centroid(polygon: gpd.GeoSeries, weighted_centroid: Point) -
             intersection.project(weighted_centroid)
         )
     else:
-        adjusted_centroid = intersection
+        adjusted_centroid = intersection.representative_point()
     return adjusted_centroid
 
 
@@ -132,15 +134,21 @@ def get_source_destination_points(
     weighting_method: WeightingMethod,
     network: pdna.Network,
     crs: int,
+    centroids_file: Path | str,
     raster: Path | None = None,
     admin_code_field: str = "pcode",
 ) -> pd.DataFrame:
     if weighting_method is WeightingMethod.CENTROID:
         boundaries["geometry"] = boundaries.representative_point()
     elif weighting_method is WeightingMethod.WEIGHTED and raster is not None:
-        boundaries["geometry"] = get_weighted_centroid(boundaries, raster)
+        if centroids_file and Path(centroids_file).exists():
+            boundaries = gpd.read_file(centroids_file)
+        else:
+            boundaries["geometry"] = get_weighted_centroid(boundaries, raster)
+            boundaries.to_file(centroids_file, driver="GPKG")
     boundaries.to_crs(f"EPSG:{crs}", inplace=True)
     centroids_df = boundaries[[admin_code_field, "geometry"]].copy()
+    centroids_df['geometry'] = centroids_df['geometry'].apply(lambda geom: geom.centroid if geom.geom_type != 'Point' else geom)
     centroids_df["nodeID"] = network.get_node_ids(
         centroids_df.geometry.x, centroids_df.geometry.y
     )
