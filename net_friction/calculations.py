@@ -99,11 +99,12 @@ def get_route_geoms_ids(
 def get_pois_with_nodes(
     acled: gpd.GeoDataFrame, net: pdna.Network, max_dist: int = 1000
 ) -> pd.DataFrame:
-    acled = acled.compute()
+    if isinstance(acled, dd.DataFrame) or isinstance(acled, dg.GeoDataFrame):
+        acled = acled.compute()
     acled.set_index("event_id_cnty", inplace=True)
-    max_items = 500  # TODO: Is this catching everything?
-    num_pois = 500
-    max_dist = max_dist * 3  # This is because in some instances, pois within route buffers are still far from nodes,
+    max_items = 800 # TODO: Is this catching everything?
+    num_pois = 800
+    max_dist = max_dist * 5  # This is because in some instances, pois within route buffers are still far from nodes,
     # resulting in them not being counted
     net.set_pois(
         category="incidents",
