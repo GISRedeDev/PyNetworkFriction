@@ -75,9 +75,9 @@ def process_data(
     roads = get_roads_data(
         roads_data,
         layer=roads_layer if roads_layer else None,
-        crs=crs,
-        subset_fields=["osm_id", "fclass"],
-        subset_categories=["motorway", "trunk", "primary", "secondary", "tertiary"],
+        # crs=crs,
+        # subset_fields=["osm_id", "fclass"],
+        # subset_categories=["motorway", "trunk", "primary", "secondary", "tertiary"],
     )
     topology = fix_topology(roads, crs, len_segments=1000)
     net, edges = make_graph(topology, precompute_distance=5000)
