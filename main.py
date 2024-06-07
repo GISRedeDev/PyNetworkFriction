@@ -30,7 +30,7 @@ if __name__ == "__main__":
     date_start = "2022-02-01"
     date_end = "2024-02-21"
     #for admin_level in [1, 2, 3]:
-    for admin_level in [2]:
+    for admin_level in [1]:
         roads = BASE.joinpath(f"edges_{admin_level}.gpkg")
         acled_data = BASE.joinpath(f"L{admin_level}/acled_subset.csv")
         distance_matrix = BASE.joinpath(f"L{admin_level}", "distances.csv")
