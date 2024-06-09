@@ -1,3 +1,4 @@
+import ast
 from itertools import combinations
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from shapely.ops import unary_union  # type: ignore
 from xarray import DataArray
 
 from .datatypes import WeightingMethod
+from .calculations import calculate_routes_and_route_distances, get_route_geoms_ids
 
 
 def get_roads_data(
@@ -188,6 +190,48 @@ def subset_acled_data(
     if outfile:
         gdf.to_file(Path(outfile), layer="acled", driver="GPKG")
     return gdf
+
+
+def data_pre_processing(
+        roads_data: Path | str,
+        crs: int,
+        raster: Path | str,
+        admin_boundaries: Path | str,
+        acled_data: Path | str,
+        admin_level: int,
+        buffer_distance: int,
+        centroids_file: Path | str,
+        edges_file: Path | str,
+        acled_out_file: Path | str,
+        weight_method: WeightingMethod = WeightingMethod.WEIGHTED,
+) -> None:
+    """Preprocessing data for before main calculations will speed things up"""
+    roads = get_roads_data(roads_data, crs=crs)
+    roads = fix_topology(roads, crs)
+    net, edges = make_graph(roads)
+    admin_boundaries_gdf = gpd.read_file(admin_boundaries)
+    admin_boundaries_gdf = admin_boundaries_gdf[admin_boundaries_gdf["admin_level"] == admin_level]
+    source_dest_points = get_source_destination_points(
+        admin_boundaries_gdf,
+        weight_method,
+        net,
+        crs,
+        centroids_file,
+        Path(raster),
+    )
+    acled = get_acled_data_from_csv(acled_data, crs)
+    shortest_path_nodes, _ = calculate_routes_and_route_distances(
+        net, source_dest_points
+    )
+    source_dest_points["shortest_path_nodes"] = shortest_path_nodes
+    source_dest_points = get_route_geoms_ids(source_dest_points.copy(), edges)
+    edge_ids = source_dest_points.explode("edge_geometries_ids")["edge_geometries_ids"].unique()
+    edges = edges[edges.index.isin(edge_ids)]
+    edges.to_file(edges_file, driver="GPKG")
+    acled_buffered = acled.set_index("event_id_cnty").copy().buffer(buffer_distance).to_frame()
+    acled_join = acled_buffered.sjoin(edges, how="inner", predicate="intersects")
+    acled = acled[acled["event_id_cnty"].isin(acled_join.index)]
+    acled[[x for x in acled.columns if x != "geometry"]].to_csv(acled_out_file, index=False)
 
 
 def get_acled_data_from_csv(

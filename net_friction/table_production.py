@@ -103,11 +103,19 @@ def process_data(
     df_matrix["shortest_path_lengths"] = shortest_path_lengths
     acled = get_acled_data_from_csv(aceld_data, crs)
     df_matrix = get_route_geoms_ids(df_matrix.copy(), edges)
+    # df_matrix.to_csv(Path(centroids_file).parent.joinpath(f"matrix_{admin_level}.csv"))
+    # print("Got matrix", admin_level)
     pois_df = get_pois_with_nodes(acled, net, max_dist=buffer_distance)
     if save_edges_and_nodes:
         save_network(net, edges, df_matrix, Path(centroids_file).parent, crs, admin_level)
     incidents_in_routes_list = []
     for row in df_matrix.itertuples():
+        # Set index on from_pcode and to_pcode
+        # Chunk through each route (in incidents_in_route["from_pcode", "to_pcode"] as index) and pass route combination to get_distance_to_route
+        # subset acled to get the where isin "event_id_cnty"
+        # Get the route geom
+        # Calculate the distance for each point
+        # Return the chuncked dataframe
         df_part = get_incidents_in_route(row, pois_df, acled.copy(), edges)
         if df_part is not None:
             incidents_in_routes_list.append(df_part)

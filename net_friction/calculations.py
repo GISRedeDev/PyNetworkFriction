@@ -125,6 +125,40 @@ def get_pois_with_nodes(
     return pois_df.reset_index()
 
 
+def get_incidents_in_route_sjoin(
+        matrix: pd.DataFrame | dd.DataFrame,
+        edges: gpd.GeoDataFrame | dg.GeoDataFrame,
+        acled: gpd.GeoDataFrame | dg.GeoDataFrame,
+        buffer: int, 
+) -> pd.DataFrame:
+    acled_buffer = acled.set_index("event_id_cnty").buffer(buffer)
+    acled_join = acled_buffer.to_frame().sjoin(edges, how="left", predicate="intersects")
+    routes = matrix[["from_pcode", "to_pcode", "edge_geometries_ids"]]
+    routes['edge_geometries_ids'] = routes['edge_geometries_ids'].apply(lambda x: ast.literal_eval(x))
+    routes = routes.explode("edge_geometries_ids")
+    df_joined = acled_join.reset_index().merge(
+        routes, left_on='index_right', right_on='edge_geometries_ids', how='inner'
+        )
+    df_final = df_joined.drop_duplicates(subset=['event_id_cnty', 'from_pcode', 'to_pcode'])
+    df_final = df_final[['event_id_cnty', 'from_pcode', 'to_pcode']].set_index('event_id_cnty')
+    incidents_in_route = acled.set_index('event_id_cnty').merge(df_final, left_index=True, right_index=True)
+    return incidents_in_route.reset_index()
+
+
+def get_distances_to_route(
+        row: pd.Series,
+        pois_df: pd.DataFrame,
+        acled: gpd.GeoDataFrame,
+        edges: gpd.GeoDataFrame,
+) -> pd.DataFrame:
+    acled = acled.reset_index()
+    route_nodes = row.shortest_path_nodes
+    # See calling code for algorithm
+
+
+
+
+
 def get_incidents_in_route(
     row: pd.Series,
     pois_df: pd.DataFrame,

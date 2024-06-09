@@ -13,6 +13,7 @@ from net_friction.data_preparation import (
     get_source_destination_points,
     get_weighted_centroid,
     make_graph,
+    data_pre_processing
 )
 from net_friction.datatypes import WeightingMethod
 
@@ -134,3 +135,35 @@ def test_get_acled_data_from_csv(outpath):
     if outpath:
         assert Path(outpath).exists()
         Path(outpath).unlink()
+
+
+def test_data_pre_processing():
+    roads = "tests/test_data/ROADS_TEST.shp"
+    crs = 6383
+    raster = "tests/test_data/ukr_ppp.tif"
+    admin_boundaries = "tests/test_data/UKR_TEST_BOUNDARIES.gpkg"
+    acled_data = "tests/test_data/ACLED.csv"
+    admin_level = 2
+    buffer_distance = 1000
+    centroids_file = "tests/test_data/data_prep/centroids.gpkg"
+    edges_file = "tests/test_data/data_prep/edges.gpkg"
+    acled_out_file = "tests/test_data/data_prep/acled.csv"
+    data_pre_processing(
+        roads,
+        crs,
+        raster,
+        admin_boundaries,
+        acled_data,
+        admin_level,
+        buffer_distance,
+        centroids_file,
+        edges_file,
+        acled_out_file,
+        WeightingMethod.WEIGHTED,
+    )
+    assert Path(centroids_file).exists()
+    assert Path(edges_file).exists()
+    assert Path(acled_out_file).exists()
+    # Path(centroids_file).unlink()
+    # Path(edges_file).unlink()
+    # Path(acled_out_file).unlink()

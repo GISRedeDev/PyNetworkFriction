@@ -22,9 +22,13 @@ def test_integration():
     end_date = "2024-04-30"
     distance_matrix = OUTPUT.joinpath("distance_matrix.csv")
     incidents_in_routes = OUTPUT.joinpath("incidents_in_routes.csv")
+    incidents_in_routes_aggregated = OUTPUT.joinpath("incidents_in_routes_aggregated.csv")
     areas_of_control_matrix = OUTPUT.joinpath("areas_of_control_matrix.csv")
     admin_level = 3
+    buffer_distance = 1000
+    centroids_file = OUTPUT.joinpath("centroids.gpkg")
     roads_layer = None
+    save_edges_and_nodes = True
     process_data(
         roads_data,
         crs,
@@ -36,9 +40,13 @@ def test_integration():
         end_date,
         distance_matrix,
         incidents_in_routes,
+        incidents_in_routes_aggregated,
         areas_of_control_matrix,
         admin_level,
+        buffer_distance,
+        centroids_file,
         roads_layer,
+        save_edges_and_nodes,
     )
     assert distance_matrix.exists()
     assert incidents_in_routes.exists()
@@ -62,9 +70,13 @@ def test_dask_integration():
     end_date = "2024-04-30"
     distance_matrix = OUTPUT.joinpath("distance_matrix.csv")
     incidents_in_routes = OUTPUT.joinpath("incidents_in_routes.csv")
+    incidents_in_routes_aggregated = OUTPUT.joinpath("incidents_in_routes_aggregated.csv")
     areas_of_control_matrix = OUTPUT.joinpath("areas_of_control_matrix.csv")
     admin_level = 3
+    buffer_distance = 1000
+    centroids_file = OUTPUT.joinpath("centroids.gpkg")
     roads_layer = None
+    save_edges_and_nodes = True
     process_data(
         roads_data,
         crs,
@@ -76,9 +88,13 @@ def test_dask_integration():
         end_date,
         distance_matrix,
         incidents_in_routes,
+        incidents_in_routes_aggregated,
         areas_of_control_matrix,
         admin_level,
+        buffer_distance,
+        centroids_file,
         roads_layer,
+        save_edges_and_nodes
     )
     assert distance_matrix.exists()
     assert incidents_in_routes.exists()
