@@ -11,6 +11,8 @@ from net_friction.calculations import (
     get_incidents_in_route,
     get_pois_with_nodes,
     get_route_geoms_ids,
+    get_incidents_in_route_sjoin,
+    get_distances_to_route_experimental,
 )
 from net_friction.data_preparation import get_acled_data_from_csv, make_graph
 
@@ -81,3 +83,23 @@ def test_get_incidents_in_route(routes_with_distances, topology_fixed):
     assert "from_pcode" in incident_df.columns
     assert "to_pcode" in incident_df.columns
     assert "distance_to_route" in incident_df.columns
+
+
+def test_calculations_with_sjoin(get_preprocessed_data):
+    df_matrix, acled, _, edges = get_preprocessed_data
+    incidents_in_route = get_incidents_in_route_sjoin(df_matrix, edges, acled, 1000)
+    incidents_in_route.to_csv("tests/test_data/incidents_in_route.csv", index=False)
+    assert len(incidents_in_route) == 1
+
+
+def test_get_distances_to_route_experimental(get_preprocessed_data):
+    df_matrix, acled, _, edges = get_preprocessed_data
+    incidents_in_routes = get_incidents_in_route_sjoin(df_matrix, edges, acled, 1000)
+    results = []
+    for (from_pcode, to_pcode), group_df in incidents_in_routes.set_index(["from_pcode", "to_pcode"]).groupby(level=[0, 1]):
+        results.append(
+            get_distances_to_route_experimental(group_df, df_matrix, acled, edges)
+        )
+    result_df = pd.concat(results)
+    assert "distance_to_route" in result_df.columns
+    assert result_df.loc[0, "distance_to_route"] > 0

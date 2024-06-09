@@ -10,6 +10,7 @@ import numpy as np
 import pandana as pdna
 import pandas as pd
 import shapely
+from shapely.geometry import Point
 
 
 def calculate_straight_line_distances(
@@ -134,27 +135,46 @@ def get_incidents_in_route_sjoin(
     acled_buffer = acled.set_index("event_id_cnty").buffer(buffer)
     acled_join = acled_buffer.to_frame().sjoin(edges, how="left", predicate="intersects")
     routes = matrix[["from_pcode", "to_pcode", "edge_geometries_ids"]]
-    routes['edge_geometries_ids'] = routes['edge_geometries_ids'].apply(lambda x: ast.literal_eval(x))
+    #routes['edge_geometries_ids'] = routes['edge_geometries_ids'].apply(lambda x: ast.literal_eval(x))
     routes = routes.explode("edge_geometries_ids")
     df_joined = acled_join.reset_index().merge(
         routes, left_on='index_right', right_on='edge_geometries_ids', how='inner'
-        )
+    )
     df_final = df_joined.drop_duplicates(subset=['event_id_cnty', 'from_pcode', 'to_pcode'])
     df_final = df_final[['event_id_cnty', 'from_pcode', 'to_pcode']].set_index('event_id_cnty')
     incidents_in_route = acled.set_index('event_id_cnty').merge(df_final, left_index=True, right_index=True)
-    return incidents_in_route.reset_index()
+    return pd.DataFrame(incidents_in_route.reset_index())
 
 
-def get_distances_to_route(
-        row: pd.Series,
-        pois_df: pd.DataFrame,
+def get_edge_geometries(
+    edge_ids: list, edges: gpd.GeoDataFrame
+) -> shapely.geometry.base.BaseGeometry:
+    gdf = edges.loc[edge_ids]
+    geom = chunked_unary_union(gdf, chunk_size=10000)
+    return geom
+
+
+def calculate_distance_to_route(row, matrix, edges)-> float:
+    edge_ids = matrix.loc[(
+        matrix.from_pcode == row.from_pcode) & (matrix.to_pcode == row.to_pcode),
+        "edge_geometries_ids"
+    ].values[0]
+    edge_geom = get_edge_geometries(edge_ids, edges)
+    return edge_geom.distance(Point(row.geometry))
+
+
+def get_distances_to_route_experimental(
+        incidents: pd.DataFrame | dd.DataFrame,
+        matrix: pd.DataFrame | dd.DataFrame,
         acled: gpd.GeoDataFrame,
         edges: gpd.GeoDataFrame,
 ) -> pd.DataFrame:
     acled = acled.reset_index()
-    route_nodes = row.shortest_path_nodes
-    # See calling code for algorithm
-
+    incidents = incidents.reset_index()
+    incidents["distance_to_route"] = incidents.apply(
+        calculate_distance_to_route, args=(matrix, edges), axis=1
+    )
+    return incidents
 
 
 

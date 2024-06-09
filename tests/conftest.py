@@ -12,6 +12,8 @@ from net_friction.data_preparation import (
     get_roads_data,
     get_source_destination_points,
     make_graph,
+    get_acled_data_from_csv,
+    get_route_geoms_ids,
 )
 from net_friction.datatypes import WeightingMethod
 
@@ -59,3 +61,41 @@ def routes_with_distances(make_src_dst_matrix, topology_fixed):
     make_src_dst_matrix["shortest_path_nodes"] = shortest_path_nodes
     make_src_dst_matrix["shortest_path_lengths"] = shortest_path_lengths
     yield make_src_dst_matrix
+
+
+@pytest.fixture
+def get_preprocessed_data():
+    BASE = Path("tests/test_data/data_prep")
+    roads = BASE.joinpath("edges.gpkg")
+    centroids = BASE.joinpath("centroids.gpkg")
+    acled_data = BASE.joinpath("acled.csv")
+    raster = BASE.parent.joinpath("ukr_ppp.tif")
+    admin_boundaries = BASE.parent.joinpath("UKR_TEST_BOUNDARIES.gpkg")
+    crs = 6383
+
+    roads = get_roads_data(roads, crs=6383)
+    net, edges = make_graph(roads)
+    boundaries = gpd.read_file(admin_boundaries)
+    boundaries = boundaries[boundaries.admin_level == 2]
+    df_matrix = get_source_destination_points(
+        boundaries=boundaries,
+        weighting_method=WeightingMethod.WEIGHTED,
+        network=net,
+        crs=crs,
+        centroids_file=centroids,
+        raster=Path(raster) if raster else None,
+        admin_code_field="pcode",
+    )
+    df_matrix["straight_line_distance"] = calculate_straight_line_distances(
+        df_matrix, crs
+    )
+    shortest_path_nodes, shortest_path_lengths = calculate_routes_and_route_distances(
+        net, df_matrix
+    )
+    df_matrix["shortest_path_nodes"] = shortest_path_nodes
+    df_matrix["shortest_path_lengths"] = shortest_path_lengths
+    acled = get_acled_data_from_csv(acled_data, crs)
+    df_matrix = get_route_geoms_ids(df_matrix.copy(), edges)
+    yield df_matrix, acled, net, edges
+
+    
