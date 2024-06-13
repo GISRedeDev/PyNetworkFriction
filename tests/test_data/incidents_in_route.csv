@@ -1,0 +1,2 @@
+event_id_cnty,event_date,year,disorder_type,event_type,sub_event_type,latitude,longitude,fatalities,geometry,from_pcode,to_pcode
+UKR148710,16 February 2024,2024,Political violence,Explosions/Remote violence,Air/drone strike,48.68925,35.22276,0,POINT (905258.7016188937 5427909.906624242),UA1210,UA1212
