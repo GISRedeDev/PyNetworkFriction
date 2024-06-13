@@ -2,8 +2,6 @@ import ast
 import warnings
 from typing import Tuple
 
-import dask.dataframe as dd
-import dask_geopandas as dg
 import geopandas as gpd
 import pandana as pdna
 import pandas as pd
@@ -55,8 +53,6 @@ def make_edges_dict(edges: gpd.GeoDataFrame) -> dict[tuple[int, int], int]:
 
 def nodes_to_edges(row, edges_dict: dict) -> list[int]:
     nodes = row.shortest_path_nodes
-    if isinstance(nodes, str):  # Dask bug
-        nodes = [int(node) for node in nodes.replace("[", "").replace("]", "").split()]
     return [edges_dict[(nodes[i - 1], nodes[i])] for i in range(1, len(nodes))]
 
 
@@ -79,19 +75,13 @@ def chunked_unary_union(
 
 
 def get_route_geoms_ids(
-    route_df: pd.DataFrame | dd.DataFrame,
-    edges: gpd.GeoDataFrame | dg.GeoDataFrame,
-) -> pd.DataFrame | dd.DataFrame:
+    route_df: pd.DataFrame,
+    edges: gpd.GeoDataFrame,
+) -> pd.DataFrame:
     edges_dict = make_edges_dict(edges)
-    if isinstance(route_df, dd.DataFrame):
-        meta = pd.Series(dtype="object")
-        route_df["edge_geometries_ids"] = route_df.map_partitions(
-            lambda df: df.apply(nodes_to_edges, args=(edges_dict,), axis=1), meta=meta
-        )
-    else:
-        route_df["edge_geometries_ids"] = route_df.apply(
-            nodes_to_edges, args=(edges_dict,), axis=1
-        )
+    route_df["edge_geometries_ids"] = route_df.apply(
+        nodes_to_edges, args=(edges_dict,), axis=1
+    )
     return route_df
 
 
@@ -99,12 +89,12 @@ def get_route_geoms_ids(
 def get_pois_with_nodes(
     acled: gpd.GeoDataFrame, net: pdna.Network, max_dist: int = 1000
 ) -> pd.DataFrame:
-    if isinstance(acled, dd.DataFrame) or isinstance(acled, dg.GeoDataFrame):
-        acled = acled.compute()
     acled.set_index("event_id_cnty", inplace=True)
-    max_items = 800 # TODO: Is this catching everything?
+    max_items = 800  # TODO: Is this catching everything?
     num_pois = 800
-    max_dist = max_dist * 5  # This is because in some instances, pois within route buffers are still far from nodes,
+    max_dist = (
+        max_dist * 5
+    )  # This is because in some instances, pois within route buffers are still far from nodes,
     # resulting in them not being counted
     net.set_pois(
         category="incidents",
@@ -126,21 +116,29 @@ def get_pois_with_nodes(
 
 
 def get_incidents_in_route_sjoin(
-        matrix: pd.DataFrame | dd.DataFrame,
-        edges: gpd.GeoDataFrame | dg.GeoDataFrame,
-        acled: gpd.GeoDataFrame | dg.GeoDataFrame,
-        buffer: int,
+    matrix: pd.DataFrame,
+    edges: gpd.GeoDataFrame,
+    acled: gpd.GeoDataFrame,
+    buffer: int,
 ) -> pd.DataFrame:
     acled_buffer = acled.set_index("event_id_cnty").buffer(buffer)
-    acled_join = acled_buffer.to_frame().sjoin(edges, how="left", predicate="intersects")
+    acled_join = acled_buffer.to_frame().sjoin(
+        edges, how="left", predicate="intersects"
+    )
     routes = matrix[["from_pcode", "to_pcode", "edge_geometries_ids"]]
     routes = routes.explode("edge_geometries_ids")
     df_joined = acled_join.reset_index().merge(
-        routes, left_on='index_right', right_on='edge_geometries_ids', how='inner'
+        routes, left_on="index_right", right_on="edge_geometries_ids", how="inner"
     )
-    df_final = df_joined.drop_duplicates(subset=['event_id_cnty', 'from_pcode', 'to_pcode'])
-    df_final = df_final[['event_id_cnty', 'from_pcode', 'to_pcode']].set_index('event_id_cnty')
-    incidents_in_route = acled.set_index('event_id_cnty').merge(df_final, left_index=True, right_index=True)
+    df_final = df_joined.drop_duplicates(
+        subset=["event_id_cnty", "from_pcode", "to_pcode"]
+    )
+    df_final = df_final[["event_id_cnty", "from_pcode", "to_pcode"]].set_index(
+        "event_id_cnty"
+    )
+    incidents_in_route = acled.set_index("event_id_cnty").merge(
+        df_final, left_index=True, right_index=True
+    )
     return pd.DataFrame(incidents_in_route.reset_index())
 
 
@@ -152,26 +150,27 @@ def get_edge_geometries(
     return geom
 
 
-def calculate_distance_to_route(row, matrix, edges)-> float:
-    edge_ids = matrix.loc[(
-        matrix.from_pcode == row.from_pcode) & (matrix.to_pcode == row.to_pcode),
-        "edge_geometries_ids"
+def calculate_distance_to_route(row, matrix, edges) -> float:
+    edge_ids = matrix.loc[
+        (matrix.from_pcode == row.from_pcode) & (matrix.to_pcode == row.to_pcode),
+        "edge_geometries_ids",
     ].values[0]
     edge_geom = get_edge_geometries(edge_ids, edges)
     return edge_geom.distance(Point(row.geometry))
 
 
 def get_distances_to_route_experimental(
-        incidents: pd.DataFrame | dd.DataFrame,
-        matrix: pd.DataFrame | dd.DataFrame,
-        acled: gpd.GeoDataFrame,
-        edges: gpd.GeoDataFrame,
+    incidents: pd.DataFrame,
+    matrix: pd.DataFrame,
+    acled: gpd.GeoDataFrame,
+    edges: gpd.GeoDataFrame,
 ) -> pd.DataFrame:
     acled = acled.reset_index()
     incidents = incidents.reset_index()
     edge_ids = matrix.loc[
-        (matrix.from_pcode == incidents.from_pcode.iloc[0]) & (matrix.to_pcode == incidents.to_pcode.iloc[0]),
-        "edge_geometries_ids"
+        (matrix.from_pcode == incidents.from_pcode.iloc[0])
+        & (matrix.to_pcode == incidents.to_pcode.iloc[0]),
+        "edge_geometries_ids",
     ].values[0]
     edge_geom = get_edge_geometries(edge_ids, edges)
     incidents["distance_to_route"] = edge_geom.distance(incidents.geometry)
@@ -187,7 +186,9 @@ def get_incidents_in_route(
     acled = acled.reset_index()
     route_nodes = row.shortest_path_nodes
     if isinstance(route_nodes, str):
-        route_nodes = [int(node) for node in route_nodes.replace("[", "").replace("]", "").split()]
+        route_nodes = [
+            int(node) for node in route_nodes.replace("[", "").replace("]", "").split()
+        ]
     poi_nodes = pois_df[pois_df.nodeID.isin(route_nodes)]
     if isinstance(poi_nodes.iloc[0].poi_list, str):
         poi_nodes["poi_list"] = poi_nodes["poi_list"].apply(

@@ -1,18 +1,16 @@
 import warnings
 
-import dask.dataframe as dd
-import dask_geopandas as dg
 import geopandas as gpd
 import pandas as pd
 
 from net_friction.calculations import (
     calculate_routes_and_route_distances,
     calculate_straight_line_distances,
+    get_distances_to_route_experimental,
     get_incidents_in_route,
+    get_incidents_in_route_sjoin,
     get_pois_with_nodes,
     get_route_geoms_ids,
-    get_incidents_in_route_sjoin,
-    get_distances_to_route_experimental,
 )
 from net_friction.data_preparation import get_acled_data_from_csv, make_graph
 
@@ -52,11 +50,7 @@ def test_get_route_geoms_ids(routes_with_distances, topology_fixed):
     _, edges = make_graph(topology_fixed, precompute_distance=500)
     route_df = routes_with_distances
     route_df = get_route_geoms_ids(route_df, edges)
-    route_ddf = dd.from_pandas(route_df, npartitions=1)
-    edges_dg = dg.from_geopandas(edges, npartitions=1)
-    route_ddf_result = get_route_geoms_ids(route_ddf, edges_dg)
     assert "edge_geometries_ids" in route_df.columns
-    assert isinstance(route_ddf_result, dd.DataFrame)
 
 
 def test_get_pois_with_nodes(make_src_dst_matrix, topology_fixed):
@@ -96,7 +90,9 @@ def test_get_distances_to_route_experimental(get_preprocessed_data):
     df_matrix, acled, _, edges = get_preprocessed_data
     incidents_in_routes = get_incidents_in_route_sjoin(df_matrix, edges, acled, 1000)
     results = []
-    for (from_pcode, to_pcode), group_df in incidents_in_routes.set_index(["from_pcode", "to_pcode"]).groupby(level=[0, 1]):
+    for (from_pcode, to_pcode), group_df in incidents_in_routes.set_index(
+        ["from_pcode", "to_pcode"]
+    ).groupby(level=[0, 1]):
         results.append(
             get_distances_to_route_experimental(group_df, df_matrix, acled, edges)
         )

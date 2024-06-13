@@ -8,12 +8,12 @@ from shapely.geometry import LineString
 
 from net_friction.data_preparation import (
     convert_pixels_to_points,
+    data_pre_processing,
     fix_topology,
     get_acled_data_from_csv,
     get_source_destination_points,
     get_weighted_centroid,
     make_graph,
-    data_pre_processing
 )
 from net_friction.datatypes import WeightingMethod
 

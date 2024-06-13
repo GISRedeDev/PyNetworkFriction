@@ -1,7 +1,7 @@
 import geopandas as gpd
 import pandas as pd
 from pathlib import Path
-from net_friction.table_production import process_data_dask, process_data
+from net_friction.table_production import process_data
 from net_friction.data_preparation import get_acled_data_from_csv
 
 

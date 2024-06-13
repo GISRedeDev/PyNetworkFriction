@@ -9,11 +9,11 @@ from net_friction.calculations import (
 )
 from net_friction.data_preparation import (
     fix_topology,
+    get_acled_data_from_csv,
     get_roads_data,
+    get_route_geoms_ids,
     get_source_destination_points,
     make_graph,
-    get_acled_data_from_csv,
-    get_route_geoms_ids,
 )
 from net_friction.datatypes import WeightingMethod
 
@@ -97,5 +97,3 @@ def get_preprocessed_data():
     acled = get_acled_data_from_csv(acled_data, crs)
     df_matrix = get_route_geoms_ids(df_matrix.copy(), edges)
     yield df_matrix, acled, net, edges
-
-    
