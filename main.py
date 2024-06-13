@@ -39,6 +39,8 @@ if __name__ == "__main__":
         areas_of_control_matrix = BASE.joinpath(f"L{admin_level}", "areas_of_control.csv")
         buffer_distance = 1000
         centroids_file = BASE.joinpath(f"L{admin_level}", f"centroids_L{admin_level}.gpkg")
+        #subset_fields = ["osm_id", "fclass"]
+        #subset_categories = ["motorway", "trunk", "primary", "secondary", "tertiary"]
         process_data(
             roads,
             crs,
@@ -55,6 +57,8 @@ if __name__ == "__main__":
             admin_level,
             buffer_distance,
             centroids_file,
+            subset_fields=None,
+            subset_categories=None
         )
         end = time.time()
         print(f"Time taken: {(end - start) / 60} minutes for level {admin_level}")

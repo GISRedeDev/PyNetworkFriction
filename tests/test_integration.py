@@ -28,7 +28,8 @@ def test_integration():
     buffer_distance = 1000
     centroids_file = OUTPUT.joinpath("centroids.gpkg")
     roads_layer = None
-    save_edges_and_nodes = True
+    subset_fields = None
+    subset_categories = None
     process_data(
         roads_data,
         crs,
@@ -46,7 +47,9 @@ def test_integration():
         buffer_distance,
         centroids_file,
         roads_layer,
-        save_edges_and_nodes,
+        fixed_topology=True,
+        subset_fields=subset_fields,
+        subset_categories=subset_categories,
     )
     assert distance_matrix.exists()
     assert incidents_in_routes.exists()
