@@ -49,7 +49,7 @@ def test_integration():
         buffer_distance,
         centroids_file,
         roads_layer,
-        fix_topology=True,
+        fix_road_topology=True,
         subset_fields=subset_fields,
         subset_categories=subset_categories,
     )
