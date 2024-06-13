@@ -1,12 +1,12 @@
+import ast
 import warnings
 from typing import Tuple
 
-import dask.dataframe as dd
-import dask_geopandas as dg
 import geopandas as gpd
 import pandana as pdna
 import pandas as pd
 import shapely
+from shapely.geometry import Point
 
 
 def calculate_straight_line_distances(
@@ -74,38 +74,28 @@ def chunked_unary_union(
     return shapely.ops.unary_union(unions)
 
 
-def get_route_geoms(
-    route_df: pd.DataFrame | dd.DataFrame,
-    edges: gpd.GeoDataFrame | dg.GeoDataFrame,
-) -> pd.DataFrame | dd.DataFrame:
-    # FIXME What if these geoms were created on the fly when calculating distances?
-    # and incidents in route?
+def get_route_geoms_ids(
+    route_df: pd.DataFrame,
+    edges: gpd.GeoDataFrame,
+) -> pd.DataFrame:
     edges_dict = make_edges_dict(edges)
-    if isinstance(route_df, dd.DataFrame):
-        meta = pd.Series(dtype="object")
-        route_df["edge_geometries_ids"] = route_df.map_partitions(
-            lambda df: df.apply(nodes_to_edges, args=(edges_dict,), axis=1), meta=meta
-        )
-        route_df["edge_geometry"] = route_df.map_partitions(
-            lambda df: df.apply(edge_geometries, args=(edges,), axis=1), meta=meta
-        )
-    else:
-        route_df["edge_geometries_ids"] = route_df.apply(
-            nodes_to_edges, args=(edges_dict,), axis=1
-        )
-        route_df["edge_geometry"] = route_df.apply(
-            edge_geometries, args=(edges,), axis=1
-        )
-    route_df = route_df.drop(columns=["edge_geometries_ids"])
+    route_df["edge_geometries_ids"] = route_df.apply(
+        nodes_to_edges, args=(edges_dict,), axis=1
+    )
     return route_df
 
 
+# TODO: This function is not used. Should it be removed?
 def get_pois_with_nodes(
     acled: gpd.GeoDataFrame, net: pdna.Network, max_dist: int = 1000
 ) -> pd.DataFrame:
     acled.set_index("event_id_cnty", inplace=True)
-    max_items = int(max_dist / 10)
-    num_pois = int(max_dist / 10)
+    max_items = 800  # TODO: Is this catching everything?
+    num_pois = 800
+    max_dist = (
+        max_dist * 5
+    )  # This is because in some instances, pois within route buffers are still far from nodes,
+    # resulting in them not being counted
     net.set_pois(
         category="incidents",
         maxdist=max_dist,
@@ -125,31 +115,102 @@ def get_pois_with_nodes(
     return pois_df.reset_index()
 
 
+def get_incidents_in_route_sjoin(
+    matrix: pd.DataFrame,
+    edges: gpd.GeoDataFrame,
+    acled: gpd.GeoDataFrame,
+    buffer: int,
+) -> pd.DataFrame:
+    acled_buffer = acled.set_index("event_id_cnty").buffer(buffer)
+    acled_join = acled_buffer.to_frame().sjoin(
+        edges, how="left", predicate="intersects"
+    )
+    routes = matrix[["from_pcode", "to_pcode", "edge_geometries_ids"]]
+    routes = routes.explode("edge_geometries_ids")
+    df_joined = acled_join.reset_index().merge(
+        routes, left_on="index_right", right_on="edge_geometries_ids", how="inner"
+    )
+    df_final = df_joined.drop_duplicates(
+        subset=["event_id_cnty", "from_pcode", "to_pcode"]
+    )
+    df_final = df_final[["event_id_cnty", "from_pcode", "to_pcode"]].set_index(
+        "event_id_cnty"
+    )
+    incidents_in_route = acled.set_index("event_id_cnty").merge(
+        df_final, left_index=True, right_index=True
+    )
+    return pd.DataFrame(incidents_in_route.reset_index())
+
+
+def get_edge_geometries(
+    edge_ids: list, edges: gpd.GeoDataFrame
+) -> shapely.geometry.base.BaseGeometry:
+    gdf = edges.loc[edge_ids]
+    geom = chunked_unary_union(gdf, chunk_size=10000)
+    return geom
+
+
+def calculate_distance_to_route(row, matrix, edges) -> float:
+    edge_ids = matrix.loc[
+        (matrix.from_pcode == row.from_pcode) & (matrix.to_pcode == row.to_pcode),
+        "edge_geometries_ids",
+    ].values[0]
+    edge_geom = get_edge_geometries(edge_ids, edges)
+    return edge_geom.distance(Point(row.geometry))
+
+
+def get_distances_to_route_experimental(
+    incidents: pd.DataFrame,
+    matrix: pd.DataFrame,
+    acled: gpd.GeoDataFrame,
+    edges: gpd.GeoDataFrame,
+) -> pd.DataFrame:
+    acled = acled.reset_index()
+    incidents = incidents.reset_index()
+    edge_ids = matrix.loc[
+        (matrix.from_pcode == incidents.from_pcode.iloc[0])
+        & (matrix.to_pcode == incidents.to_pcode.iloc[0]),
+        "edge_geometries_ids",
+    ].values[0]
+    edge_geom = get_edge_geometries(edge_ids, edges)
+    incidents["distance_to_route"] = edge_geom.distance(incidents.geometry)
+    return incidents
+
+
 def get_incidents_in_route(
     row: pd.Series,
     pois_df: pd.DataFrame,
     acled: gpd.GeoDataFrame,
+    edges: gpd.GeoDataFrame,
 ) -> pd.DataFrame:
-    acled.reset_index(inplace=True)
+    acled = acled.reset_index()
     route_nodes = row.shortest_path_nodes
+    if isinstance(route_nodes, str):
+        route_nodes = [
+            int(node) for node in route_nodes.replace("[", "").replace("]", "").split()
+        ]
     poi_nodes = pois_df[pois_df.nodeID.isin(route_nodes)]
+    if isinstance(poi_nodes.iloc[0].poi_list, str):
+        poi_nodes["poi_list"] = poi_nodes["poi_list"].apply(
+            lambda x: ast.literal_eval(x)
+        )
     acled_ids = poi_nodes.poi_list.explode().dropna().unique().tolist()
     if len(acled_ids) > 0:
         incidents_in_route = acled[acled.event_id_cnty.isin(acled_ids)].copy()
         if not incidents_in_route.empty:
             incidents_in_route["from_pcode"] = row.from_pcode
             incidents_in_route["to_pcode"] = row.to_pcode
-            incidents_in_route["distance_to_route"] = (
-                incidents_in_route.geometry.distance(row.edge_geometry)
+            edge_geom = edge_geometries(row, edges)
+            incidents_in_route["distance_to_route"] = edge_geom.distance(
+                incidents_in_route.geometry
             )
             return incidents_in_route
-    else:
-        return pd.DataFrame(
-            columns=[
-                "event_id_cnty",
-                "geometry",
-                "from_pcode",
-                "to_pcode",
-                "distance_to_route",
-            ]
-        )
+    return pd.DataFrame(
+        columns=[
+            "event_id_cnty",
+            "geometry",
+            "from_pcode",
+            "to_pcode",
+            "distance_to_route",
+        ]
+    )

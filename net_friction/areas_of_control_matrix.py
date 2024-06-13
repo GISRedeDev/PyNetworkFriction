@@ -9,18 +9,12 @@ pd.set_option("future.no_silent_downcasting", True)
 
 
 def calculate_src_dst_areas_of_control(
-    src_dst_matrix: pd.DataFrame,
+    centroids_df: gpd.GeoDataFrame,
     start_date: str,
     end_date: str,
     polygon_dir: Path | str,
     crs: int,
 ) -> pd.DataFrame:
-    areas_of_control_df = src_dst_matrix.copy()
-    centroids_df = gpd.GeoDataFrame(
-        src_dst_matrix[["from_pcode", "from_centroid"]],
-        geometry="from_centroid",
-        crs=crs,
-    ).to_crs(4326)
     dates = pd.date_range(start_date, end_date, freq="D").strftime("%Y-%m-%d").tolist()
     areas_of_control_df_list = []
     for index, day in enumerate(dates):
@@ -34,16 +28,18 @@ def calculate_src_dst_areas_of_control(
             centroids_df["in_occupied_area"] = False
         else:
             centroids_df["in_occupied_area"] = np.nan
+        occupied_area_dict = centroids_df.set_index("pcode")[
+            "in_occupied_area"
+        ].to_dict()
+
         combinations = pd.DataFrame(
-            list(itertools.product(centroids_df["from_pcode"], repeat=2)),
+            list(itertools.product(centroids_df["pcode"], repeat=2)),
             columns=["from_pcode", "to_pcode"],
         )
         combinations["src_occupied"] = combinations["from_pcode"].map(
-            centroids_df.set_index("from_pcode")["in_occupied_area"]
+            occupied_area_dict
         )
-        combinations["dst_occupied"] = combinations["to_pcode"].map(
-            centroids_df.set_index("from_pcode")["in_occupied_area"]
-        )
+        combinations["dst_occupied"] = combinations["to_pcode"].map(occupied_area_dict)
         combinations["date"] = day
         areas_of_control_df_list.append(combinations)
     areas_of_control_df = pd.concat(areas_of_control_df_list)
