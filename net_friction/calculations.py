@@ -1,12 +1,10 @@
 import ast
-from pathlib import Path
 import warnings
 from typing import Tuple
 
 import dask.dataframe as dd
 import dask_geopandas as dg
 import geopandas as gpd
-import numpy as np
 import pandana as pdna
 import pandas as pd
 import shapely
@@ -97,6 +95,7 @@ def get_route_geoms_ids(
     return route_df
 
 
+# TODO: This function is not used. Should it be removed?
 def get_pois_with_nodes(
     acled: gpd.GeoDataFrame, net: pdna.Network, max_dist: int = 1000
 ) -> pd.DataFrame:
@@ -130,12 +129,11 @@ def get_incidents_in_route_sjoin(
         matrix: pd.DataFrame | dd.DataFrame,
         edges: gpd.GeoDataFrame | dg.GeoDataFrame,
         acled: gpd.GeoDataFrame | dg.GeoDataFrame,
-        buffer: int, 
+        buffer: int,
 ) -> pd.DataFrame:
     acled_buffer = acled.set_index("event_id_cnty").buffer(buffer)
     acled_join = acled_buffer.to_frame().sjoin(edges, how="left", predicate="intersects")
     routes = matrix[["from_pcode", "to_pcode", "edge_geometries_ids"]]
-    #routes['edge_geometries_ids'] = routes['edge_geometries_ids'].apply(lambda x: ast.literal_eval(x))
     routes = routes.explode("edge_geometries_ids")
     df_joined = acled_join.reset_index().merge(
         routes, left_on='index_right', right_on='edge_geometries_ids', how='inner'
@@ -171,12 +169,13 @@ def get_distances_to_route_experimental(
 ) -> pd.DataFrame:
     acled = acled.reset_index()
     incidents = incidents.reset_index()
-    incidents["distance_to_route"] = incidents.apply(
-        calculate_distance_to_route, args=(matrix, edges), axis=1
-    )
+    edge_ids = matrix.loc[
+        (matrix.from_pcode == incidents.from_pcode.iloc[0]) & (matrix.to_pcode == incidents.to_pcode.iloc[0]),
+        "edge_geometries_ids"
+    ].values[0]
+    edge_geom = get_edge_geometries(edge_ids, edges)
+    incidents["distance_to_route"] = edge_geom.distance(incidents.geometry)
     return incidents
-
-
 
 
 def get_incidents_in_route(

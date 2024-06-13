@@ -15,6 +15,8 @@ from .calculations import (
     get_incidents_in_route,
     get_pois_with_nodes,
     get_route_geoms_ids,
+    get_incidents_in_route_sjoin,
+    get_distances_to_route_experimental
 )
 from .data_preparation import (
     fix_topology,
@@ -27,30 +29,6 @@ from .data_preparation import (
 from .datatypes import WeightingMethod
 
 
-def save_network(
-        net: pdna.Network,
-        edges: gpd.GeoDataFrame,
-        df_matrix: pd.DataFrame,
-        outdir: Path,
-        crs: int,
-        admin_level: int,
-) -> None:
-    edges_file = outdir.joinpath(f"edges_{admin_level}.gpkg")
-    nodes_file = outdir.joinpath(f"nodes_{admin_level}.gpkg")
-    if not edges_file.exists() or not nodes_file.exists():
-        edge_ids = df_matrix['edge_geometries_ids'].explode().unique()
-        mask = np.isnan(pd.to_numeric(edge_ids, errors="coerce"))
-        edge_ids = edge_ids[~mask]
-        filtered_edges = edges.loc[edge_ids].to_crs("EPSG:4326")
-        filtered_edges.to_file(outdir.joinpath(f"edges_{admin_level}.gpkg"), layer="geographic", driver="GPKG")
-        if isinstance(df_matrix.loc[0, "shortest_path_nodes"], str):
-            df_matrix['shortest_path_nodes'] = df_matrix['shortest_path_nodes'].apply(
-                lambda x: [int(i) for i in x.replace("[", "").replace("]", "").split()]
-            )
-        nodes_df = net.nodes_df.loc[df_matrix['shortest_path_nodes'].explode().unique()]
-        nodes_gdf = gpd.GeoDataFrame(nodes_df, geometry=gpd.points_from_xy(nodes_df.x, nodes_df.y), crs=f"EPSG:{crs}")
-        nodes_gdf.to_crs("EPSG:4326", inplace=True)
-        nodes_gdf.to_file(outdir.joinpath(f"nodes_{admin_level}.gpkg"), driver="GPKG")
 
 
 def process_data(
@@ -63,25 +41,23 @@ def process_data(
     date_start: str,
     date_end: str,
     distance_matrix: Path | str,
-    incidents_in_routes: Path | str,
+    incidents_in_routes_outfile: Path | str,
     incidents_in_routes_aggregated: Path | str,
     areas_of_control_matrix: Path | str,
     admin_level: int,
     buffer_distance: int,
     centroids_file: Path | str,
     roads_layer: str | None = None,
-    save_edges_and_nodes: bool = True,
 ) -> None:
     roads = get_roads_data(
         roads_data,
         layer=roads_layer if roads_layer else None,
-        # crs=crs,
+        crs=crs,
         # subset_fields=["osm_id", "fclass"],
         # subset_categories=["motorway", "trunk", "primary", "secondary", "tertiary"],
     )
-    topology = fix_topology(roads, crs, len_segments=1000)
-    net, edges = make_graph(topology, precompute_distance=5000)
-    #save_network(net, edges, Path(roads_data).parent.joinpath("network.h5"))
+    # topology = fix_topology(roads, crs, len_segments=1000)
+    net, edges = make_graph(roads, precompute_distance=5000)
     boundaries = gpd.read_file(admin_boundaries)
     boundaries = boundaries[boundaries.admin_level == admin_level]
     df_matrix = get_source_destination_points(
@@ -93,6 +69,7 @@ def process_data(
         raster=Path(raster) if raster else None,
         admin_code_field="pcode",
     )
+    print("Got matrix", admin_level)
     df_matrix["straight_line_distance"] = calculate_straight_line_distances(
         df_matrix, crs
     )
@@ -101,32 +78,27 @@ def process_data(
     )
     df_matrix["shortest_path_nodes"] = shortest_path_nodes
     df_matrix["shortest_path_lengths"] = shortest_path_lengths
+    print("Got routes and distances", admin_level)
     acled = get_acled_data_from_csv(aceld_data, crs)
     df_matrix = get_route_geoms_ids(df_matrix.copy(), edges)
-    # df_matrix.to_csv(Path(centroids_file).parent.joinpath(f"matrix_{admin_level}.csv"))
-    # print("Got matrix", admin_level)
-    pois_df = get_pois_with_nodes(acled, net, max_dist=buffer_distance)
-    if save_edges_and_nodes:
-        save_network(net, edges, df_matrix, Path(centroids_file).parent, crs, admin_level)
+    print("Got acled and route_geoms", admin_level)
+    incidents_in_routes = get_incidents_in_route_sjoin(
+        df_matrix, edges, acled, buffer_distance
+    )
+    print("Got incidents in the sjoin", admin_level)
     incidents_in_routes_list = []
-    for row in df_matrix.itertuples():
-        # Set index on from_pcode and to_pcode
-        # Chunk through each route (in incidents_in_route["from_pcode", "to_pcode"] as index) and pass route combination to get_distance_to_route
-        # subset acled to get the where isin "event_id_cnty"
-        # Get the route geom
-        # Calculate the distance for each point
-        # Return the chuncked dataframe
-        df_part = get_incidents_in_route(row, pois_df, acled.copy(), edges)
-        if df_part is not None:
-            incidents_in_routes_list.append(df_part)
-    incidents_in_routes_list = [df.dropna(how='all', axis=1) for df in incidents_in_routes_list]
+    for (from_pcode, to_pcode), group_df in incidents_in_routes.set_index(["from_pcode", "to_pcode"]).groupby(level=[0, 1]):
+        incidents_in_routes_list.append(
+            get_distances_to_route_experimental(group_df, df_matrix, acled, edges)
+        )
+    print("Got distances to route", admin_level)
     incidents_in_routes_df = pd.concat(incidents_in_routes_list)
     distances_df = df_matrix[
         ["from_pcode", "to_pcode", "straight_line_distance", "shortest_path_lengths"]
     ]
     distances_df.to_csv(distance_matrix, index=False)
     incidents_in_routes_df = incidents_in_routes_df[incidents_in_routes_df.distance_to_route <= buffer_distance]
-    incidents_in_routes_df.to_csv(incidents_in_routes, index=False)
+    incidents_in_routes_df.to_csv(incidents_in_routes_outfile, index=False)
     df_grouped = incidents_in_routes_df.groupby(
         ['event_date', 'from_pcode', 'to_pcode']).agg(
             incident_count=('event_id_cnty', 'count'),
@@ -134,8 +106,9 @@ def process_data(
             mean_distance_to_route=('distance_to_route', 'mean')
     ).reset_index()
     df_grouped.to_csv(incidents_in_routes_aggregated, index=False)
-    del net, edges, acled, pois_df, incidents_in_routes_df
+    del net, edges, acled, incidents_in_routes_df
     centroids_df = boundaries.copy()
+    print("Everything saved - moving on to areas of control", admin_level)
     try:
         assert centroids_df.crs == "EPSG:4326"
     except AssertionError:
@@ -212,8 +185,6 @@ def process_data_dask(
     df_matrix = get_route_geoms_ids(df_matrix.copy(), edges)
     pois_df = get_pois_with_nodes(acled, net, max_dist=buffer_distance)
     pois_df = dd.from_pandas(pois_df, npartitions=10)
-    if save_edges_and_nodes:
-        save_network(net, edges, df_matrix.compute(), Path(centroids_file).parent, crs, admin_level)
     delayed_results = [
         delayed(get_incidents_in_route)(row, pois_df, acled, edges)
         for row in df_matrix.itertuples(index=False)
