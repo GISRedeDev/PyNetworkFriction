@@ -39,7 +39,7 @@ def process_data(
     buffer_distance: int,
     centroids_file: Path | str,
     roads_layer: str | None = None,
-    fixed_topology: bool = False,
+    fix_topology: bool = False,
     subset_fields: list[str] | None = None,
     subset_categories: list[str] | None = None,
 ) -> None:
@@ -50,7 +50,7 @@ def process_data(
         subset_fields=subset_fields,  # ["osm_id", "fclass"],
         subset_categories=subset_categories,  # ["motorway", "trunk", "primary", "secondary", "tertiary"],
     )
-    if fixed_topology:
+    if fix_topology:
         roads = fix_topology(roads, crs, len_segments=1000)
     net, edges = make_graph(roads, precompute_distance=5000)
     boundaries = gpd.read_file(admin_boundaries)
