@@ -1,4 +1,5 @@
 from itertools import combinations
+import json
 from pathlib import Path
 
 import geopandas as gpd  # type: ignore
@@ -7,6 +8,7 @@ import networkx as nx
 import numpy as np
 import pandana as pdna
 import pandas as pd  # type: ignore
+import requests
 import rioxarray
 from shapely.geometry import LineString, Point
 from shapely.ops import unary_union  # type: ignore
@@ -253,10 +255,33 @@ def get_acled_data_from_csv(
 
 
 def get_acled_data_from_api(
+    api_key: str,
+    email: str,
+    country: str,
     start_date: str,
     end_date: str,
     crs: int,
+    accept_acleddata_terms: bool,
     outfile: Path | str | None = None,
 ) -> gpd.GeoDataFrame:
     # TODO: Implement this function
-    pass
+    df_list = []
+    page = 1
+    while True:
+        url = (
+            f"https://api.acleddata.com/acled/read?terms={accept_acleddata_terms}"
+            f"{api_key}"
+            f"&email={email}"
+            f"&country={country}"
+            f"&event_date={start_date}/{end_date}"
+            f"&page={page}"
+            f"&export_type=csv"
+        )
+        response = requests.get(url)
+        data = json.loads(response.text)["data"]
+        if not data:
+            break
+        df_list.append(pd.DataFrame(data))
+        page += 1
+    df = pd.concat(df_list)
+    return subset_acled_data(df, crs, outfile=outfile)
