@@ -1,5 +1,5 @@
-from itertools import combinations
 import json
+from itertools import combinations
 from pathlib import Path
 
 import geopandas as gpd  # type: ignore
