@@ -7,3 +7,5 @@ data/
 *__pycache__/
 
 .vscode/
+
+tests/test_data/data_prep/edges.gpkg
