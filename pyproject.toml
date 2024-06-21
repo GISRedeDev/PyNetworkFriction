@@ -14,6 +14,7 @@ dependencies = [
     "pandana>=0.7",
     "networkx>=3.3",
     "rioxarray>=0.15.5",
+    "python-dotenv>=1.0.1",
 ]
 
 [build-system]

@@ -57,7 +57,7 @@ def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000):
 
 
 def make_graph(
-    gdf: gpd.GeoDataFrame, precompute_distance: int = 5000
+    gdf: gpd.GeoDataFrame, precompute_distance: int | None = None
 ) -> tuple[pdna.Network, gpd.GeoDataFrame]:
     G_prep = momepy.gdf_to_nx(gdf, approach="primal")
     components = list(nx.connected_components(G_prep))
@@ -73,7 +73,8 @@ def make_graph(
         edges.node_end,
         edges[["length"]],
     )
-    net.precompute(precompute_distance)
+    if precompute_distance:
+        net.precompute(precompute_distance)
     return net, edges
 
 
@@ -207,11 +208,14 @@ def data_pre_processing(
     edges_file: Path | str,
     acled_out_file: Path | str,
     weight_method: WeightingMethod = WeightingMethod.WEIGHTED,
+    subset_fields: list | None = None,
+    subset_categories: list | None = None,
 ) -> None:
     """Preprocessing data for before main calculations will speed things up"""
-    roads = get_roads_data(roads_data, crs=crs)
+    roads = get_roads_data(roads_data, crs=crs, subset_fields=subset_fields, subset_categories=subset_categories)
     roads = fix_topology(roads, crs)
     net, edges = make_graph(roads)
+    print("Graph created")
     admin_boundaries_gdf = gpd.read_file(admin_boundaries)
     admin_boundaries_gdf = admin_boundaries_gdf[
         admin_boundaries_gdf["admin_level"] == admin_level
@@ -224,10 +228,12 @@ def data_pre_processing(
         centroids_file,
         Path(raster),
     )
+    print("Source and destination points created")
     acled = get_acled_data_from_csv(acled_data, crs)
     shortest_path_nodes, _ = calculate_routes_and_route_distances(
         net, source_dest_points
     )
+    print("Shortest paths calculated")
     source_dest_points["shortest_path_nodes"] = shortest_path_nodes
     source_dest_points = get_route_geoms_ids(source_dest_points.copy(), edges)
     edge_ids = source_dest_points.explode("edge_geometries_ids")[
@@ -238,6 +244,7 @@ def data_pre_processing(
     acled_buffered = (
         acled.set_index("event_id_cnty").copy().buffer(buffer_distance).to_frame()
     )
+    print("ACLED buffered")
     acled_join = acled_buffered.sjoin(edges, how="inner", predicate="intersects")
     acled = acled[acled["event_id_cnty"].isin(acled_join.index)]
     acled[[x for x in acled.columns if x != "geometry"]].to_csv(
@@ -264,24 +271,25 @@ def get_acled_data_from_api(
     accept_acleddata_terms: bool,
     outfile: Path | str | None = None,
 ) -> gpd.GeoDataFrame:
-    # TODO: Implement this function
     df_list = []
     page = 1
     while True:
         url = (
             f"https://api.acleddata.com/acled/read?terms={accept_acleddata_terms}"
-            f"{api_key}"
+            f"&key={api_key}"
             f"&email={email}"
             f"&country={country}"
-            f"&event_date={start_date}/{end_date}"
+            f"&event_date={start_date}|{end_date}&event_date_where=BETWEEN"
             f"&page={page}"
             f"&export_type=csv"
         )
         response = requests.get(url)
-        data = json.loads(response.text)["data"]
-        if not data:
+        if data := json.loads(response.text).get("data"):
+            df_list.append(pd.DataFrame(data))
+            page += 1
+        else:
             break
-        df_list.append(pd.DataFrame(data))
-        page += 1
-    df = pd.concat(df_list)
-    return subset_acled_data(df, crs, outfile=outfile)
+    if df_list:
+        df = pd.concat(df_list)
+        return subset_acled_data(df, crs, outfile=outfile)
+    raise ValueError("No data returned from ACLED API")
