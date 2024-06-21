@@ -212,7 +212,12 @@ def data_pre_processing(
     subset_categories: list | None = None,
 ) -> None:
     """Preprocessing data for before main calculations will speed things up"""
-    roads = get_roads_data(roads_data, crs=crs, subset_fields=subset_fields, subset_categories=subset_categories)
+    roads = get_roads_data(
+        roads_data,
+        crs=crs,
+        subset_fields=subset_fields,
+        subset_categories=subset_categories,
+    )
     roads = fix_topology(roads, crs)
     net, edges = make_graph(roads)
     print("Graph created")
