@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Utilities to calculate travel distance matrices weighted by incidents"
 authors = [
     {name = "GISRedeDev", email = "dm@gisrede.com"},
+    {name = "David Kerr", email = "dkerr83@gmail.com"}
 ]
 requires-python = ">=3.11"
 readme = "README.md"
@@ -15,6 +16,7 @@ dependencies = [
     "networkx>=3.3",
     "rioxarray>=0.15.5",
     "python-dotenv>=1.0.1",
+    "numpy==1.26.4",
 ]
 
 [build-system]
