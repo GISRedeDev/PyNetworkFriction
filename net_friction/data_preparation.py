@@ -201,12 +201,9 @@ def data_pre_processing(
     crs: int,
     raster: Path | str,
     admin_boundaries: Path | str,
-    acled_data: Path | str,
     admin_level: int,
-    buffer_distance: int,
     centroids_file: Path | str,
     edges_file: Path | str,
-    acled_out_file: Path | str,
     weight_method: WeightingMethod = WeightingMethod.WEIGHTED,
     subset_fields: list | None = None,
     subset_categories: list | None = None,
@@ -220,7 +217,6 @@ def data_pre_processing(
     )
     roads = fix_topology(roads, crs)
     net, edges = make_graph(roads)
-    print("Graph created")
     admin_boundaries_gdf = gpd.read_file(admin_boundaries)
     admin_boundaries_gdf = admin_boundaries_gdf[
         admin_boundaries_gdf["admin_level"] == admin_level
@@ -233,12 +229,9 @@ def data_pre_processing(
         centroids_file,
         Path(raster),
     )
-    print("Source and destination points created")
-    acled = get_acled_data_from_csv(acled_data, crs)
     shortest_path_nodes, _ = calculate_routes_and_route_distances(
         net, source_dest_points
     )
-    print("Shortest paths calculated")
     source_dest_points["shortest_path_nodes"] = shortest_path_nodes
     source_dest_points = get_route_geoms_ids(source_dest_points.copy(), edges)
     edge_ids = source_dest_points.explode("edge_geometries_ids")[
@@ -246,14 +239,23 @@ def data_pre_processing(
     ].unique()
     edges = edges[edges.index.isin(edge_ids)]
     edges.to_file(edges_file, driver="GPKG")
+
+
+def subset_acled_data_in_buffer(
+    edges: gpd.GeoDataFrame,
+    acled_data: Path | str,
+    acled_out_file: Path | str,
+    buffer_distance: int,
+    crs: int,
+) -> gpd.GeoDataFrame:
+    acled = get_acled_data_from_csv(Path(acled_data), crs)
     acled_buffered = (
         acled.set_index("event_id_cnty").copy().buffer(buffer_distance).to_frame()
     )
-    print("ACLED buffered")
     acled_join = acled_buffered.sjoin(edges, how="inner", predicate="intersects")
     acled = acled[acled["event_id_cnty"].isin(acled_join.index)]
     acled[[x for x in acled.columns if x != "geometry"]].to_csv(
-        acled_out_file, index=False
+        Path(acled_out_file), index=False
     )
 
 

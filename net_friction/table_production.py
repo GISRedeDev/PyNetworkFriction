@@ -64,7 +64,6 @@ def process_data(
         raster=Path(raster) if raster else None,
         admin_code_field="pcode",
     )
-    print("Got matrix", admin_level)
     df_matrix["straight_line_distance"] = calculate_straight_line_distances(
         df_matrix, crs
     )
@@ -73,14 +72,11 @@ def process_data(
     )
     df_matrix["shortest_path_nodes"] = shortest_path_nodes
     df_matrix["shortest_path_lengths"] = shortest_path_lengths
-    print("Got routes and distances", admin_level)
     acled = get_acled_data_from_csv(aceld_data, crs)
     df_matrix = get_route_geoms_ids(df_matrix.copy(), edges)
-    print("Got acled and route_geoms", admin_level)
     incidents_in_routes = get_incidents_in_route_sjoin(
         df_matrix, edges, acled, buffer_distance
     )
-    print("Got incidents in the sjoin", admin_level)
     incidents_in_routes_list = []
     for (from_pcode, to_pcode), group_df in incidents_in_routes.set_index(
         ["from_pcode", "to_pcode"]
@@ -88,7 +84,6 @@ def process_data(
         incidents_in_routes_list.append(
             get_distances_to_route_experimental(group_df, df_matrix, acled, edges)
         )
-    print("Got distances to route", admin_level)
     incidents_in_routes_df = pd.concat(incidents_in_routes_list)
     distances_df = df_matrix[
         ["from_pcode", "to_pcode", "straight_line_distance", "shortest_path_lengths"]
@@ -110,7 +105,6 @@ def process_data(
     df_grouped.to_csv(incidents_in_routes_aggregated, index=False)
     del net, edges, acled, incidents_in_routes_df
     centroids_df = boundaries.copy()
-    print("Everything saved - moving on to areas of control", admin_level)
     try:
         assert centroids_df.crs == "EPSG:4326"
     except AssertionError:
