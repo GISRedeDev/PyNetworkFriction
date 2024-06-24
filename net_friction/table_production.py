@@ -22,6 +22,30 @@ from .data_preparation import (
 from .datatypes import WeightingMethod
 
 
+def fill_missing_routes(
+    df_grouped: pd.DataFrame, df_distance: pd.DataFrame, date_start: str, date_end: str
+) -> pd.DataFrame:
+    date_range = pd.date_range(start=date_start, end=date_end)
+    dates_df = pd.DataFrame(date_range, columns=["event_date"])
+    unique_routes_df = df_distance[["from_pcode", "to_pcode"]].drop_duplicates()
+    all_combinations_df = pd.merge(
+        dates_df.assign(key=1), unique_routes_df.assign(key=1), on="key"
+    ).drop("key", axis=1)
+    all_combinations_df["event_date"] = pd.to_datetime(
+        all_combinations_df["event_date"]
+    )
+    df_grouped["event_date"] = pd.to_datetime(df_grouped["event_date"])
+    full_df = pd.merge(
+        all_combinations_df,
+        df_grouped,
+        on=["event_date", "from_pcode", "to_pcode"],
+        how="left",
+    )
+    full_df["incident_count"] = full_df["incident_count"].fillna(0)
+    full_df["total_fatalities"] = full_df["total_fatalities"].fillna(0)
+    return full_df
+
+
 def process_data(
     roads_data: Path | str,
     crs: int,
@@ -102,7 +126,10 @@ def process_data(
         )
         .reset_index()
     )
-    df_grouped.to_csv(incidents_in_routes_aggregated, index=False)
+    df_grouped_filled = fill_missing_routes(
+        df_grouped, distances_df, date_start, date_end
+    )
+    df_grouped_filled.to_csv(incidents_in_routes_aggregated, index=False)
     del net, edges, acled, incidents_in_routes_df
     centroids_df = boundaries.copy()
     try:
