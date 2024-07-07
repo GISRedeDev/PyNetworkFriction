@@ -451,3 +451,38 @@ def get_acled_data_from_api(
         df = pd.concat(df_list)
         return subset_acled_data(df, crs, outfile=outfile)
     raise ValueError("No data returned from ACLED API")
+
+
+def fill_missing_routes(
+    df_grouped: pd.DataFrame, df_distance: pd.DataFrame, date_start: str, date_end: str
+) -> pd.DataFrame:
+    """Insert source and destination points into dataframe for which there were no incidents in the date range
+
+    Args:
+        df_grouped (pd.DataFrame): Aggregated incidents dataframe
+        df_distance (pd.DataFrame): Distances dataframe
+        date_start (str): Start date in format "YYYY-MM-DD"
+        date_end (str): End date in format "YYYY-MM-DD"
+
+    Returns:
+        pd.DataFrame: Dataframe with missing pairwise combinations filled with zeros
+    """
+    date_range = pd.date_range(start=date_start, end=date_end)
+    dates_df = pd.DataFrame(date_range, columns=["event_date"])
+    unique_routes_df = df_distance[["from_pcode", "to_pcode"]].drop_duplicates()
+    all_combinations_df = pd.merge(
+        dates_df.assign(key=1), unique_routes_df.assign(key=1), on="key"
+    ).drop("key", axis=1)
+    all_combinations_df["event_date"] = pd.to_datetime(
+        all_combinations_df["event_date"]
+    )
+    df_grouped["event_date"] = pd.to_datetime(df_grouped["event_date"])
+    full_df = pd.merge(
+        all_combinations_df,
+        df_grouped,
+        on=["event_date", "from_pcode", "to_pcode"],
+        how="left",
+    )
+    full_df["incident_count"] = full_df["incident_count"].fillna(0)
+    full_df["total_fatalities"] = full_df["total_fatalities"].fillna(0)
+    return full_df

@@ -18,32 +18,9 @@ from .data_preparation import (
     get_source_destination_points,
     get_weighted_centroid,
     make_graph,
+    fill_missing_routes,
 )
 from .datatypes import WeightingMethod
-
-
-def fill_missing_routes(
-    df_grouped: pd.DataFrame, df_distance: pd.DataFrame, date_start: str, date_end: str
-) -> pd.DataFrame:
-    date_range = pd.date_range(start=date_start, end=date_end)
-    dates_df = pd.DataFrame(date_range, columns=["event_date"])
-    unique_routes_df = df_distance[["from_pcode", "to_pcode"]].drop_duplicates()
-    all_combinations_df = pd.merge(
-        dates_df.assign(key=1), unique_routes_df.assign(key=1), on="key"
-    ).drop("key", axis=1)
-    all_combinations_df["event_date"] = pd.to_datetime(
-        all_combinations_df["event_date"]
-    )
-    df_grouped["event_date"] = pd.to_datetime(df_grouped["event_date"])
-    full_df = pd.merge(
-        all_combinations_df,
-        df_grouped,
-        on=["event_date", "from_pcode", "to_pcode"],
-        how="left",
-    )
-    full_df["incident_count"] = full_df["incident_count"].fillna(0)
-    full_df["total_fatalities"] = full_df["total_fatalities"].fillna(0)
-    return full_df
 
 
 def process_data(
@@ -67,6 +44,29 @@ def process_data(
     subset_fields: list[str] | None = None,
     subset_categories: list[str] | None = None,
 ) -> None:
+    """Helper function to process data for the net friction calculation
+
+    Args:
+        roads_data (Path | str): Roads data
+        crs (int): CRS
+        raster (Path | str): Raster data used for calculating weighted centroids
+        admin_boundaries (Path | str): Boundaries data
+        control_areas_dir (Path | str): Path in which areas of control polygons are defined
+        aceld_data (Path | str): ACLED data
+        date_start (str): Start date in format 'YYYY-MM-DD'
+        date_end (str): End date in format 'YYYY-MM-DD'
+        distance_matrix (Path | str): Distance matrix output file
+        incidents_in_routes_outfile (Path | str): Incidents in routes output file
+        incidents_in_routes_aggregated (Path | str): Incidents in routes aggregated output file
+        areas_of_control_matrix (Path | str): Areas of control matrix output file
+        admin_level (int): Admin level
+        buffer_distance (int): Buffer distance in meters
+        centroids_file (Path | str): Centroids file output/input (if it exists)
+        roads_layer (str | None, optional): Roads layer. Defaults to None.
+        fix_road_topology (bool, optional): Is it necessary to fix road topology. Defaults to False.
+        subset_fields (list[str] | None, optional): Subset roads fields. Defaults to None.
+        subset_categories (list[str] | None, optional): Subset roads categories. Defaults to None.
+    """
     roads = get_roads_data(
         roads_data,
         layer=roads_layer if roads_layer else None,
