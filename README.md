@@ -1,25 +1,27 @@
-# networkFriction
+# Network Friction
 
-## Description
-net-friction is a Python package that provides functionalities for geographical data processing and analysis. It is designed to work with geospatial data, specifically road networks and points of interest (POIs), and perform operations such as creating graphs from road data, generating centroids, creating routes, and finding incidents in routes.
+`net-friction` was funded by the University of Oxford (insert dept/url) and was used in their population modelling work in Ukraine (url to project and dashboard).
 
-## Installation
+## Description and suggested workflow
+The purpose of the `net-friction` package is to provide functionality to analyse input point or raster 'incident' data relative to their proximity of network routes, and more specifically, their proximity to pairwise route combinations in a network. The functions in the package provide output for the following suggested workflow:
+
+1. Subset an input road network dataset (OSM) to required classifications and carry out a crude topology to ensure all edges in the network are connected;
+ - See `data_pre_processing` to preprocess and save network edges and source/destination centroids or
+ - See `get_roads_data` and `fix_topology`
+2. Calculate source/destination point dataset either as centroids of an input boundary dataset, or as weighted centroids from a boundary dataset and an input continuous raster dataset;
+ - See `get_source_desitnation_points`
+3. Calculate shortest routes from the road network between all pairwise combinations of the source/destination dataset;
+4. From these networks, calculate the straight line and network route distances in the source/destination matrix;
+5. Extract incident datasets (raster or point, i.e. ACLED) within an input proximity of the routes and aggregate the incidents along the respective pairwise routes;
+6. Optionally infer source and destination areas of control in conflict scenarios using pre-defined polygons, for example [Ukraine/Russian areas of control](https://github.com/GISRedeDev/AreasofControl).
+
+## Installation (requires Python >= 3.11)
 To install net-friction, use pip:
+- `pip install git+https://github.com/GISRedeDev/PyNetworkFriction.git`
 
-## Usage
-Here is a basic example of how to use net-friction:
 
-## Functions
-```
-make_graph(gdf_roads): Creates a graph from road data.
-make_centroids(gpkg_admin, crs, admin_level): Generates centroids from administrative data.
-make_routes(centroids, net): Creates routes using the centroids and the network.
-get_pois_with_nodes(acled_gdf, net): Gets points of interest with nodes.
-get_route_geoms(route_df, edges): Gets the geometries of the routes.
-get_incidents_in_route(route_df, pois_df, acled_gdf): Finds incidents in the routes.
-```
-Contributing
+## Contributing
 Contributions are welcome. Please submit a pull request or create an issue to discuss the changes you want to make.
 
-License
+## License
 This project is licensed under the MIT License.

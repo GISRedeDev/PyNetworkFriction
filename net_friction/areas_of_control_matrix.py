@@ -15,6 +15,20 @@ def calculate_src_dst_areas_of_control(
     polygon_dir: Path | str,
     crs: int,
 ) -> pd.DataFrame:
+    """Calculate source and destination areas of control for each pairwise combination in the centoids_df.
+
+    Args:
+        centroids_df (gpd.GeoDataFrame): Boundary centroids (source and destination points)
+        start_date (str): Start date
+        end_date (str): End date
+        polygon_dir (Path | str): Location of the areas of control polygons saved as geopackage files saved in the
+            format `occupied_{date}.gpkg`
+        crs (int): CRS
+
+    Returns:
+        pd.DataFrame: Dataframe indicating source and destination occupied (1) or unoccupied (0) as indicated by areas
+        of control polygons
+    """
     dates = pd.date_range(start_date, end_date, freq="D").strftime("%Y-%m-%d").tolist()
     areas_of_control_df_list = []
     for index, day in enumerate(dates):

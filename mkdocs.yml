@@ -1,0 +1,18 @@
+site_name: Network Friction
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          rendering:
+            show_source: true
+extra_css:
+  - css/custom.css
+nav:
+  - Home: index.md
+  - Data Preparation: data_prep.md
+  - Network and Data Analysis: data_analysis.md
+  - Areas of Control: areas_of_control.md
+  - Helper Functions: helper_functions.md
+theme: readthedocs
