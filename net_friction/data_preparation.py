@@ -97,7 +97,7 @@ def make_graph(
     Args:
         gdf (gpd.GeoDataFrame): Roads data
         precompute_distance (int | None, optional): Precompute distance for network (see Pandana docs).
-        Defaults to None.
+            Defaults to None.
 
     Returns:
         tuple[pdna.Network, gpd.GeoDataFrame]: Network graph and edges geodataframe
@@ -267,7 +267,7 @@ def make_incident_data(
         df (pd.DataFrame): Dataframe of incident data (Must include latitude and longitude columns)
         crs (int): Local crs
         outfile (Path | str | None, optional): Location in which to save output if required.
-        Defaults to None.
+            Defaults to None.
 
     Returns:
         pd.DataFrame: Subset ACLED data
@@ -299,7 +299,7 @@ def data_pre_processing(
         roads_data (Path | str): Roads shapefile or geopackage file
         crs (int): Local CRS
         admin_boundaries (Path | str): Admin boundaries shapefile or geopackage file. This file should contain all
-        admin levels and the admin level should be specified in the admin_level argument.
+            admin levels and the admin level should be specified in the admin_level argument.
         admin_level (int): Admin level to subset from admin boundaries file named 'admin_level'.
         centroids_file (Path | str): Centroids file path (input (if exists) and output)
         edges_file (Path | str): Path to save edges file
@@ -359,7 +359,7 @@ def subset_incident_data_in_buffer(
         buffer_distance (int): Buffer distance in which to subset incidents
         crs (int): CRS
         is_acled (bool, optional): Is the incident data ACLED data. Defaults to True. If True, ACLED columns will
-        be subset.
+            be subset.
         index_col (str, optional): Index column. Defaults to "event_id_cnty".
 
     Returns:

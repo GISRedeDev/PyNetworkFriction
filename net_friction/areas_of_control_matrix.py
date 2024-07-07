@@ -22,7 +22,7 @@ def calculate_src_dst_areas_of_control(
         start_date (str): Start date
         end_date (str): End date
         polygon_dir (Path | str): Location of the areas of control polygons saved as geopackage files saved in the
-        format `occupied_{date}.gpkg`
+            format `occupied_{date}.gpkg`
         crs (int): CRS
 
     Returns:
