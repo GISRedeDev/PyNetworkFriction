@@ -251,12 +251,12 @@ def test_data_pre_processing():
     data_pre_processing(
         roads,
         crs,
-        raster,
         admin_boundaries,
         admin_level,
         centroids_file,
         edges_file,
         WeightingMethod.WEIGHTED,
+        raster,
     )
     assert Path(centroids_file).exists()
     assert Path(edges_file).exists()

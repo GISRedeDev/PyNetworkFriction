@@ -7,18 +7,18 @@ from .areas_of_control_matrix import calculate_src_dst_areas_of_control
 from .calculations import (
     calculate_routes_and_route_distances,
     calculate_straight_line_distances,
-    get_distances_to_route_experimental,
+    get_distances_to_route,
     get_incidents_in_route_sjoin,
     get_route_geoms_ids,
 )
 from .data_preparation import (
+    fill_missing_routes,
     fix_topology,
     get_acled_data_from_csv,
     get_roads_data,
     get_source_destination_points,
     get_weighted_centroid,
     make_graph,
-    fill_missing_routes,
 )
 from .datatypes import WeightingMethod
 
@@ -106,7 +106,7 @@ def process_data(
         ["from_pcode", "to_pcode"]
     ).groupby(level=[0, 1]):
         incidents_in_routes_list.append(
-            get_distances_to_route_experimental(group_df, df_matrix, acled, edges)
+            get_distances_to_route(group_df, df_matrix, edges)
         )
     incidents_in_routes_df = pd.concat(incidents_in_routes_list)
     distances_df = df_matrix[

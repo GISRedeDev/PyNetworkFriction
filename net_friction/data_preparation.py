@@ -59,7 +59,9 @@ def get_roads_data(
     return roads
 
 
-def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000) -> gpd.GeoDataFrame:
+def fix_topology(
+    gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000
+) -> gpd.GeoDataFrame:
     """Crudely fixes topology of roads data by segmentizing the roads into smaller segments in an effort to fix
     disconnected segments of the network. This is not a perfect solution but can help in some cases. It is recommended
     that the user check the output to ensure it is suitable for their use case and adjust the network manually to
@@ -256,13 +258,13 @@ def get_source_destination_points(
     return df_matrix
 
 
-def subset_acled_data(
+def make_incident_data(
     df: pd.DataFrame, crs: int, outfile: Path | str | None = None
 ) -> pd.DataFrame:
-    """Subset ACLED data to only include relevant columns and convert to geodataframe
+    """Subset incident data to only include relevant columns and convert to geodataframe
 
     Args:
-        df (pd.DataFrame): Dataframe of ACLED data
+        df (pd.DataFrame): Dataframe of incident data (Must include latitude and longitude columns)
         crs (int): Local crs
         outfile (Path | str | None, optional): Location in which to save output if required.
         Defaults to None.
@@ -270,24 +272,11 @@ def subset_acled_data(
     Returns:
         pd.DataFrame: Subset ACLED data
     """
-    df = df[
-        [
-            "event_id_cnty",
-            "event_date",
-            "year",
-            "disorder_type",
-            "event_type",
-            "sub_event_type",
-            "latitude",
-            "longitude",
-            "fatalities",
-        ]
-    ].copy()
     df["geometry"] = gpd.points_from_xy(df.longitude, df.latitude)
     gdf = gpd.GeoDataFrame(df, crs="EPSG:4326")
     gdf = gdf.to_crs(f"EPSG:{crs}")
     if outfile:
-        gdf.to_file(Path(outfile), layer="acled", driver="GPKG")
+        gdf.to_file(Path(outfile), driver="GPKG")
     return gdf
 
 
@@ -337,7 +326,7 @@ def data_pre_processing(
         net,
         crs,
         centroids_file,
-        Path(raster),
+        Path(raster) if raster else None,
     )
     shortest_path_nodes, _ = calculate_routes_and_route_distances(
         net, source_dest_points
@@ -351,33 +340,42 @@ def data_pre_processing(
     edges.to_file(edges_file, driver="GPKG")
 
 
-def subset_acled_data_in_buffer(  # TODO: RENAME THIS TO SUBSET_INCIDENTS_IN_BUFFER
+def subset_incident_data_in_buffer(
     edges: gpd.GeoDataFrame,
-    acled_data: Path | str,
-    acled_out_file: Path | str,
+    incident_data: Path | str,
+    incident_out_file: Path | str,
     buffer_distance: int,
     crs: int,
+    is_acled: bool = True,
+    index_col: str = "event_id_cnty",
 ) -> gpd.GeoDataFrame:
-    """Subset incidents to those within buffer of routes edges
+    """Subset incidents to those within buffer of routes edges. If ACLED data is used, the function will subset
+    columns to those required for analysis.
 
     Args:
         edges (gpd.GeoDataFrame): Edges dataframe extracted from full network
-        acled_data (Path | str): Incident data
-        acled_out_file (Path | str): Output location
+        incident_data (Path | str): Incident data
+        incident_out_file (Path | str): Output location
         buffer_distance (int): Buffer distance in which to subset incidents
         crs (int): CRS
+        is_acled (bool, optional): Is the incident data ACLED data. Defaults to True. If True, ACLED columns will
+        be subset.
+        index_col (str, optional): Index column. Defaults to "event_id_cnty".
 
     Returns:
-        gpd.GeoDataFrame: _description_
+        gpd.GeoDataFrame: Geodataframe of incidents within buffer
     """
-    acled = get_acled_data_from_csv(Path(acled_data), crs)
-    acled_buffered = (
-        acled.set_index("event_id_cnty").copy().buffer(buffer_distance).to_frame()
+    if is_acled:
+        incident = get_acled_data_from_csv(Path(incident_data), crs)
+    else:
+        make_incident_data(pd.read_csv(Path(incident_data)), crs)
+    incident_buffered = (
+        incident.set_index(index_col).copy().buffer(buffer_distance).to_frame()
     )
-    acled_join = acled_buffered.sjoin(edges, how="inner", predicate="intersects")
-    acled = acled[acled["event_id_cnty"].isin(acled_join.index)]
-    acled[[x for x in acled.columns if x != "geometry"]].to_csv(
-        Path(acled_out_file), index=False
+    incident_join = incident_buffered.sjoin(edges, how="inner", predicate="intersects")
+    incident = incident[incident[index_col].isin(incident_join.index)]
+    incident[[x for x in incident.columns if x != "geometry"]].to_csv(
+        Path(incident_out_file), index=False
     )
 
 
@@ -397,7 +395,20 @@ def get_acled_data_from_csv(
         gpd.GeoDataFrame: Subset ACLED data
     """
     df = pd.read_csv(Path(csv_path))
-    return subset_acled_data(df, crs, outfile=outfile)
+    df = df[
+        [
+            "event_id_cnty",
+            "event_date",
+            "year",
+            "disorder_type",
+            "event_type",
+            "sub_event_type",
+            "latitude",
+            "longitude",
+            "fatalities",
+        ]
+    ].copy()
+    return make_incident_data(df, crs, outfile=outfile)
 
 
 def get_acled_data_from_api(
@@ -449,7 +460,20 @@ def get_acled_data_from_api(
             break
     if df_list:
         df = pd.concat(df_list)
-        return subset_acled_data(df, crs, outfile=outfile)
+        df = df[
+            [
+                "event_id_cnty",
+                "event_date",
+                "year",
+                "disorder_type",
+                "event_type",
+                "sub_event_type",
+                "latitude",
+                "longitude",
+                "fatalities",
+            ]
+        ].copy()
+        return make_incident_data(df, crs, outfile=outfile)
     raise ValueError("No data returned from ACLED API")
 
 
