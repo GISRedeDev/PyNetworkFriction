@@ -25,6 +25,22 @@ def get_roads_data(
     subset_fields: list | None = None,
     subset_categories: list | None = None,
 ) -> gpd.GeoDataFrame:
+    """Get roads data from a shapefile or geopackage file subset by fields and categories. NOTE categories fieldname
+    must be 'fclass' as this is the default fieldname used by OSM.
+
+    Args:
+        file_path (Path | str): Path to shapefile or geopackage file for roads data.
+        layer (str | None, optional): Layer name in geopackage. Defaults to None.
+        crs (int | None, optional): Spatial reference system local to roads network . Defaults to None.
+        subset_fields (list | None, optional): Fields to subset. Defaults to None.
+        subset_categories (list | None, optional): Categories to subset. Defaults to None.
+
+    Raises:
+        ValueError: If file type is not supported.
+
+    Returns:
+        gpd.GeoDataFrame: Subset geodataframe of roads data
+    """
     file_path = Path(file_path)
     if file_path.suffix == ".shp":
         roads = gpd.read_file(file_path)
@@ -43,7 +59,20 @@ def get_roads_data(
     return roads
 
 
-def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000):
+def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000) -> gpd.GeoDataFrame:
+    """Crudely fixes topology of roads data by segmentizing the roads into smaller segments in an effort to fix
+    disconnected segments of the network. This is not a perfect solution but can help in some cases. It is recommended
+    that the user check the output to ensure it is suitable for their use case and adjust the network manually to
+    fit their needs.
+
+    Args:
+        gdf (gpd.GeoDataFrame): Roads data
+        crs (int): CRS of the roads data
+        len_segments (int, optional): Length of segments to segmentize. Defaults to 1000.
+
+    Returns:
+       gpd.GeoDataFrame: Roads with more detailed segments
+    """
     gdf = gdf.to_crs(f"EPSG:{crs}")
     merged = unary_union(gdf.geometry)
     geom = merged.segmentize(max_segment_length=len_segments)
@@ -59,6 +88,18 @@ def fix_topology(gdf: gpd.GeoDataFrame, crs: int, len_segments: int = 1000):
 def make_graph(
     gdf: gpd.GeoDataFrame, precompute_distance: int | None = None
 ) -> tuple[pdna.Network, gpd.GeoDataFrame]:
+    """Makes a graph from a geodataframe of roads data and an edges geodataframe. This function will return the
+    largest connected component of the graph and drop disconnected parts. NOTE users should check the output to
+    ensure it is suitable for their use case and adjust the network manually to fit their needs.
+
+    Args:
+        gdf (gpd.GeoDataFrame): Roads data
+        precompute_distance (int | None, optional): Precompute distance for network (see Pandana docs).
+        Defaults to None.
+
+    Returns:
+        tuple[pdna.Network, gpd.GeoDataFrame]: Network graph and edges geodataframe
+    """
     G_prep = momepy.gdf_to_nx(gdf, approach="primal")
     components = list(nx.connected_components(G_prep))
     largest_component = max(components, key=len)
@@ -79,6 +120,18 @@ def make_graph(
 
 
 def convert_pixels_to_points(raster: Path, polygon: gpd.GeoSeries) -> gpd.GeoDataFrame:
+    """Converts raster pixels to points within a polygon
+
+    Args:
+        raster (Path): Contunuous raster data file path
+        polygon (gpd.GeoSeries): Boundary polygon to use to clip the raster
+
+    Raises:
+        ValueError: Raster must be in EPSG:4326
+
+    Returns:
+        gpd.GeoDataFrame: Points with values from the raster
+    """
     raster_data = rioxarray.open_rasterio(raster)[0]
     assert isinstance(raster_data, DataArray)
     raster_data_clipped = raster_data.rio.clip([polygon.geometry])
@@ -101,7 +154,15 @@ def convert_pixels_to_points(raster: Path, polygon: gpd.GeoSeries) -> gpd.GeoDat
 
 
 def adjust_weighted_centroid(polygon: gpd.GeoSeries, weighted_centroid: Point) -> Point:
-    """This will be called if the weighted centroid is not within the polygon."""
+    """Function to bring weighted centroid inside the polygon in cases where it is outside the polygon
+
+    Args:
+        polygon (gpd.GeoSeries): Boundary polygon in which centroid is being calculated
+        weighted_centroid (Point): Weighted centroid
+
+    Returns:
+        Point: Adjusted centroid within polygon
+    """
     line = LineString([polygon.geometry.representative_point(), weighted_centroid])
     intersection = line.intersection(polygon.geometry)
     if intersection.geom_type == "LineString":
@@ -117,6 +178,15 @@ def get_weighted_centroid(
     gdf: gpd.GeoDataFrame,
     raster: Path,
 ) -> gpd.GeoSeries:
+    """Calculated centroid of polygons based on weighted raster data
+
+    Args:
+        gdf (gpd.GeoDataFrame): Boudary polygons
+        raster (Path): Continuous raster data used for weighting
+
+    Returns:
+        gpd.GeoSeries: Weighted centroids' geometries
+    """
     if gdf.crs.to_epsg() != 4326:
         gdf = gdf.to_crs(4326)
     centroids = []
@@ -142,6 +212,20 @@ def get_source_destination_points(
     raster: Path | None = None,
     admin_code_field: str = "pcode",
 ) -> pd.DataFrame:
+    """Make source and destination points for shortest path calculations
+
+    Args:
+        boundaries (gpd.GeoDataFrame): Areas for which to calculate shortest paths' matrix
+        weighting_method (WeightingMethod): Centroid or weighted centroid
+        network (pdna.Network): Roads network
+        crs (int): Local CRS
+        centroids_file (Path | str): Centroids file path (input (if exists) and output)
+        raster (Path | None, optional): Path to raster to use for weights. Defaults to None.
+        admin_code_field (str, optional):Boundary field name in boundaries dataframe. Defaults to "pcode".
+
+    Returns:
+        pd.DataFrame: Dataframe with source and destination matrix and centroid geometries
+    """
     if weighting_method is WeightingMethod.CENTROID:
         boundaries["geometry"] = boundaries.representative_point()
     elif weighting_method is WeightingMethod.WEIGHTED and raster is not None:
@@ -175,6 +259,17 @@ def get_source_destination_points(
 def subset_acled_data(
     df: pd.DataFrame, crs: int, outfile: Path | str | None = None
 ) -> pd.DataFrame:
+    """Subset ACLED data to only include relevant columns and convert to geodataframe
+
+    Args:
+        df (pd.DataFrame): Dataframe of ACLED data
+        crs (int): Local crs
+        outfile (Path | str | None, optional): Location in which to save output if required.
+        Defaults to None.
+
+    Returns:
+        pd.DataFrame: Subset ACLED data
+    """
     df = df[
         [
             "event_id_cnty",
@@ -199,16 +294,31 @@ def subset_acled_data(
 def data_pre_processing(
     roads_data: Path | str,
     crs: int,
-    raster: Path | str,
     admin_boundaries: Path | str,
     admin_level: int,
     centroids_file: Path | str,
     edges_file: Path | str,
     weight_method: WeightingMethod = WeightingMethod.WEIGHTED,
+    raster: Path | str | None = None,
     subset_fields: list | None = None,
     subset_categories: list | None = None,
 ) -> None:
-    """Preprocessing data for before main calculations will speed things up"""
+    """Helper function to preprocess data for shortest path calculations. These outputs can then be used in
+    subsequent calculations.
+
+    Args:
+        roads_data (Path | str): Roads shapefile or geopackage file
+        crs (int): Local CRS
+        admin_boundaries (Path | str): Admin boundaries shapefile or geopackage file. This file should contain all
+        admin levels and the admin level should be specified in the admin_level argument.
+        admin_level (int): Admin level to subset from admin boundaries file named 'admin_level'.
+        centroids_file (Path | str): Centroids file path (input (if exists) and output)
+        edges_file (Path | str): Path to save edges file
+        weight_method (WeightingMethod, optional): Weighting method to use. Defaults to WeightingMethod.WEIGHTED.
+        raster (Path | str): Path to raster data if weighted centroid method is used
+        subset_fields (list | None, optional): Roads field names to subset. Defaults to None.
+        subset_categories (list | None, optional): Roads categories to subset. Defaults to None.
+    """
     roads = get_roads_data(
         roads_data,
         crs=crs,
@@ -241,13 +351,25 @@ def data_pre_processing(
     edges.to_file(edges_file, driver="GPKG")
 
 
-def subset_acled_data_in_buffer(
+def subset_acled_data_in_buffer(  # TODO: RENAME THIS TO SUBSET_INCIDENTS_IN_BUFFER
     edges: gpd.GeoDataFrame,
     acled_data: Path | str,
     acled_out_file: Path | str,
     buffer_distance: int,
     crs: int,
 ) -> gpd.GeoDataFrame:
+    """Subset incidents to those within buffer of routes edges
+
+    Args:
+        edges (gpd.GeoDataFrame): Edges dataframe extracted from full network
+        acled_data (Path | str): Incident data
+        acled_out_file (Path | str): Output location
+        buffer_distance (int): Buffer distance in which to subset incidents
+        crs (int): CRS
+
+    Returns:
+        gpd.GeoDataFrame: _description_
+    """
     acled = get_acled_data_from_csv(Path(acled_data), crs)
     acled_buffered = (
         acled.set_index("event_id_cnty").copy().buffer(buffer_distance).to_frame()
@@ -264,6 +386,16 @@ def get_acled_data_from_csv(
     crs: int,
     outfile: Path | str | None = None,
 ) -> gpd.GeoDataFrame:
+    """Read ACLED data from csv and subset columns
+
+    Args:
+        csv_path (Path | str): Path to csv
+        crs (int): CRS
+        outfile (Path | str | None, optional): Output location if required. Defaults to None.
+
+    Returns:
+        gpd.GeoDataFrame: Subset ACLED data
+    """
     df = pd.read_csv(Path(csv_path))
     return subset_acled_data(df, crs, outfile=outfile)
 
@@ -278,6 +410,25 @@ def get_acled_data_from_api(
     accept_acleddata_terms: bool,
     outfile: Path | str | None = None,
 ) -> gpd.GeoDataFrame:
+    """Get ACLED data from the ACLED API in date range. This function will return a geodataframe of the data and
+    requires an API key and email address to access the data. The data will be subset to columns required for analysis.
+
+    Args:
+        api_key (str): API key for ACLED
+        email (str): Email used to access ACLED data
+        country (str): Full country name (i.e. "Ukraine" not "UKR")
+        start_date (str): Start date in format "YYYY-MM-DD"
+        end_date (str): End date in format "YYYY-MM-DD"
+        crs (int): Local CRS in which to project points
+        accept_acleddata_terms (bool): Indicate acceptance of ACLED terms - See ACLED API documentation
+        outfile (Path | str | None, optional): Location to save output if required. Defaults to None.
+
+    Raises:
+        ValueError: If no data is returned from the API
+
+    Returns:
+        gpd.GeoDataFrame: GeoDataFrame of ACLED point data in specified CRS
+    """
     df_list = []
     page = 1
     while True:
