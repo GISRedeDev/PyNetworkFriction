@@ -12,6 +12,17 @@ from shapely.geometry import Point
 def calculate_straight_line_distances(
     src_dst_matrix: pd.DataFrame, crs: int
 ) -> gpd.GeoSeries:
+    """Calculates the straight line distance between two points in src_dst_matrix. This dataframe must include  columns
+    'from_centroid' and 'to_centroid' which are the centroids of the source and destination polygons respectively in
+    the local crs.
+
+    Args:
+        src_dst_matrix (pd.DataFrame): Table including columns 'from_centroid' and 'to_centroid' points
+        crs (int): Spatial reference system
+
+    Returns:
+        gpd.GeoSeries: Distances between 'from_centroid' and 'to_centroid' in meters
+    """
     with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         from_ = gpd.GeoSeries(src_dst_matrix.from_centroid, crs=crs)
@@ -24,6 +35,17 @@ def calculate_routes_and_route_distances(
     src_dst_matrix: pd.DataFrame,
     chunk_size: int = 1000,
 ) -> Tuple[list, list]:
+    """Calculates the shortest path between source and destination nodes in src_dst_matrix using the network net.
+
+    Args:
+        net (pdna.Network): Road network
+        src_dst_matrix (pd.DataFrame): Dataframe with columns 'from_nodeID' and 'to_nodeID' which are the source
+            and destination nodes respectively.
+        chunk_size (int, optional): Chunksize for large dataframes. Defaults to 1000.
+
+    Returns:
+        Tuple[list, list]: Route node ids and route distances
+    """
     shortest_path_nodes = []
     shortest_path_lengths = []
     for i in range(0, len(src_dst_matrix), chunk_size):
@@ -44,6 +66,14 @@ def calculate_routes_and_route_distances(
 
 
 def make_edges_dict(edges: gpd.GeoDataFrame) -> dict[tuple[int, int], int]:
+    """Creates a dictionary of edges with keys as tuples of node_start and node_end and values as the index of the edge
+
+    Args:
+        edges (gpd.GeoDataFrame): Network edges
+
+    Returns:
+        dict[tuple[int, int], int]: Dict of edges (start_node, end_node) -> edge_index (int)
+    """
     edges_dict = {}
     for row in edges.itertuples():
         edges_dict[(row.node_start, row.node_end)] = row.Index
@@ -52,6 +82,15 @@ def make_edges_dict(edges: gpd.GeoDataFrame) -> dict[tuple[int, int], int]:
 
 
 def nodes_to_edges(row, edges_dict: dict) -> list[int]:
+    """Converts a list of nodes to a list of edges' ids
+
+    Args:
+        row (_type_): Row containing shortest path nodes
+        edges_dict (dict): Dictionary of edges (start and end nodes -> edge index)
+
+    Returns:
+        list[int]: List of edge ids
+    """
     nodes = row.shortest_path_nodes
     return [edges_dict[(nodes[i - 1], nodes[i])] for i in range(1, len(nodes))]
 
@@ -59,6 +98,15 @@ def nodes_to_edges(row, edges_dict: dict) -> list[int]:
 def edge_geometries(
     row: pd.Series, edges: gpd.GeoDataFrame
 ) -> shapely.geometry.base.BaseGeometry:
+    """Creates a shapely geometry from a row of a dataframe and a geodataframe of edges
+
+    Args:
+        row (pd.Series): Row containing edge geometries ids
+        edges (gpd.GeoDataFrame): Geodataframe of edges
+
+    Returns:
+        shapely.geometry.base.BaseGeometry: Edge geometry multilinestring
+    """
     gdf = edges.loc[row.edge_geometries_ids]
     geom = chunked_unary_union(gdf, chunk_size=10000)
     return geom
@@ -67,6 +115,15 @@ def edge_geometries(
 def chunked_unary_union(
     gdf: gpd.GeoDataFrame, chunk_size: int = 10000
 ) -> shapely.geometry.base.BaseGeometry:
+    """Creates a unary union of a geodataframe in chunks
+
+    Args:
+        gdf (gpd.GeoDataFrame): Geodataframe to union
+        chunk_size (int, optional): Size to chunk dataframe. Defaults to 10000.
+
+    Returns:
+        shapely.geometry.base.BaseGeometry: Union of geodataframe geometries
+    """
     unions = []
     for i in range(0, len(gdf), chunk_size):
         chunk = gdf.iloc[i : i + chunk_size]
@@ -78,6 +135,15 @@ def get_route_geoms_ids(
     route_df: pd.DataFrame,
     edges: gpd.GeoDataFrame,
 ) -> pd.DataFrame:
+    """Gets the geometries of the edges in a route dataframe
+
+    Args:
+        route_df (pd.DataFrame): Dataframe with route node geometry ids
+        edges (gpd.GeoDataFrame): Geodataframe of edges
+
+    Returns:
+        pd.DataFrame: Dataframe with edge ids applied
+    """
     edges_dict = make_edges_dict(edges)
     route_df["edge_geometries_ids"] = route_df.apply(
         nodes_to_edges, args=(edges_dict,), axis=1
@@ -85,42 +151,24 @@ def get_route_geoms_ids(
     return route_df
 
 
-# TODO: This function is not used. Should it be removed?
-def get_pois_with_nodes(
-    acled: gpd.GeoDataFrame, net: pdna.Network, max_dist: int = 1000
-) -> pd.DataFrame:
-    acled.set_index("event_id_cnty", inplace=True)
-    max_items = 800  # TODO: Is this catching everything?
-    num_pois = 800
-    max_dist = (
-        max_dist * 5
-    )  # This is because in some instances, pois within route buffers are still far from nodes,
-    # resulting in them not being counted
-    net.set_pois(
-        category="incidents",
-        maxdist=max_dist,
-        maxitems=max_items,
-        x_col=acled.geometry.x,
-        y_col=acled.geometry.y,
-    )
-    pois_df = net.nearest_pois(
-        distance=max_dist, category="incidents", num_pois=num_pois, include_poi_ids=True
-    )
-    poi_cols = [col for col in pois_df.columns if isinstance(col, str) if "poi" in col]
-    pois_df["poi_list"] = pois_df[poi_cols].apply(
-        lambda row: row.dropna().tolist(), axis=1
-    )
-    pois_df["nodeID"] = pois_df.index.copy()
-    pois_df = pois_df[["nodeID", "poi_list"]].set_index("nodeID")
-    return pois_df.reset_index()
-
-
 def get_incidents_in_route_sjoin(
     matrix: pd.DataFrame,
     edges: gpd.GeoDataFrame,
-    acled: gpd.GeoDataFrame,
+    acled: gpd.GeoDataFrame,  # TODO: RENAME THIS TO INCIDENTS
     buffer: int,
+    # TODO: ADD ID COLOMN FOR INCIDENTS
 ) -> pd.DataFrame:
+    """Subsets the incidents in a route using a spatial join
+
+    Args:
+        matrix (pd.DataFrame): Table with source and destination nodes
+        edges (gpd.GeoDataFrame): Edge geometries
+        acled (gpd.GeoDataFrame): Incident dataframe
+        buffer (int): Size of buffer in which to perform the spatial join (meters)
+
+    Returns:
+        pd.DataFrame: Incident dataframe subset to those within buffer of route
+    """
     acled_buffer = acled.set_index("event_id_cnty").buffer(buffer)
     acled_join = acled_buffer.to_frame().sjoin(
         edges, how="left", predicate="intersects"
@@ -145,6 +193,15 @@ def get_incidents_in_route_sjoin(
 def get_edge_geometries(
     edge_ids: list, edges: gpd.GeoDataFrame
 ) -> shapely.geometry.base.BaseGeometry:
+    """Map edge ids to edge geometries
+
+    Args:
+        edge_ids (list): List of edge ids
+        edges (gpd.GeoDataFrame): Edge geometries
+
+    Returns:
+        shapely.geometry.base.BaseGeometry: Edge geometries representing the edge ids
+    """
     gdf = edges.loc[edge_ids]
     geom = chunked_unary_union(gdf, chunk_size=10000)
     return geom
@@ -159,12 +216,23 @@ def calculate_distance_to_route(row, matrix, edges) -> float:
     return edge_geom.distance(Point(row.geometry))
 
 
-def get_distances_to_route_experimental(
+def get_distances_to_route_experimental(  # TODO: RENAME THIS TO GET_INCIDENTS_TO_ROUTE
     incidents: pd.DataFrame,
     matrix: pd.DataFrame,
     acled: gpd.GeoDataFrame,
-    edges: gpd.GeoDataFrame,
+    edges: gpd.GeoDataFrame,  # TODO: RENAME THIS TO INCIDENTS
 ) -> pd.DataFrame:
+    """Calculates the distance of incidents to the route
+
+    Args:
+        incidents (pd.DataFrame): Incident points dataframe
+        matrix (pd.DataFrame): Source destination matrix
+        acled (gpd.GeoDataFrame): Incident dataframe
+        edges (gpd.GeoDataFrame):Edge geometries
+
+    Returns:
+        pd.DataFrame: _description_
+    """
     acled = acled.reset_index()
     incidents = incidents.reset_index()
     edge_ids = matrix.loc[
@@ -177,12 +245,22 @@ def get_distances_to_route_experimental(
     return incidents
 
 
-def get_incidents_in_route(
+def get_incidents_in_route(  # TODO CAN THIS REMOVED?
     row: pd.Series,
     pois_df: pd.DataFrame,
     acled: gpd.GeoDataFrame,
     edges: gpd.GeoDataFrame,
 ) -> pd.DataFrame:
+    """Get incidents in a route
+
+    Args:
+        pois_df (pd.DataFrame): Points of interest dataframe
+        acled (gpd.GeoDataFrame): Incident dataframe
+        edges (gpd.GeoDataFrame): Edges dataframe
+
+    Returns:
+        pd.DataFrame: Dataframe with distances to route
+    """
     acled = acled.reset_index()
     route_nodes = row.shortest_path_nodes
     if isinstance(route_nodes, str):
