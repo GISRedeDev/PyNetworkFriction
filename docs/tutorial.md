@@ -122,6 +122,7 @@ incidents_gdf = subset_incident_data_in_buffer(
 )
 ```
 
+
 ## Network Analysis
 Once data has been prepared, the network analysis can be processed. Please note that if this analysis will be processed in multiple iterations or different periods, it is best to save some of the above outputs, and use these as inputs to the analysis. This will help to speed up the performance.
 
@@ -181,7 +182,8 @@ df_grouped_filled = prep.fill_missing_routes(
 )
 ```
 
-## Calcualate Areas of Control
+
+## Calculate Areas of Control
 Create a dataframe of pairwise combinations of source and destinations, indicating whether the route originates or ends with local occupation force (0) or foreign occupation force (1)
 
 ```python
