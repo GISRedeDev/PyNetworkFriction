@@ -1,6 +1,6 @@
 # Network Friction
-
-`net-friction` was funded by the University of Oxford (insert dept/url) and was used in their population modelling work in Ukraine (url to project and dashboard).
+THIS IS THE README
+`net-friction` was funded by the University of Oxford (insert dept/url) and was used in their population modelling work in Ukraine (url to project and dashboard). Documentation can be found [here](https://network-friction.readthedocs.io/en/latest/)
 
 ## Description and suggested workflow
 The purpose of the `net-friction` package is to provide functionality to analyse input point or raster 'incident' data relative to their proximity of network routes, and more specifically, their proximity to pairwise route combinations in a network. The functions in the package provide output for the following suggested workflow:
@@ -14,6 +14,8 @@ The purpose of the `net-friction` package is to provide functionality to analyse
 4. From these networks, calculate the straight line and network route distances in the source/destination matrix;
 5. Extract incident datasets (raster or point, i.e. ACLED) within an input proximity of the routes and aggregate the incidents along the respective pairwise routes;
 6. Optionally infer source and destination areas of control in conflict scenarios using pre-defined polygons, for example [Ukraine/Russian areas of control](https://github.com/GISRedeDev/AreasofControl).
+
+**PLEASE SEE THE [DOCUMENTATION PAGE](https://network-friction.readthedocs.io/en/latest/) FOR A TUTORIAL OF THE ABOVE STEPS**
 
 ## Installation (requires Python >= 3.11)
 To install net-friction, use pip:

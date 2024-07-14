@@ -11,6 +11,7 @@ extra_css:
   - css/custom.css
 nav:
   - Home: index.md
+  - Tutorial: tutorial.md
   - Data Preparation: data_prep.md
   - Network and Data Analysis: data_analysis.md
   - Areas of Control: areas_of_control.md

@@ -377,6 +377,7 @@ def subset_incident_data_in_buffer(
     incident[[x for x in incident.columns if x != "geometry"]].to_csv(
         Path(incident_out_file), index=False
     )
+    return incident
 
 
 def get_acled_data_from_csv(
