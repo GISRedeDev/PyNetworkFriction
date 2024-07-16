@@ -10,7 +10,7 @@ import pandana as pdna
 import pandas as pd  # type: ignore
 import requests
 import rioxarray
-from shapely.geometry import LineString, Point
+from shapely.geometry import LineString, Point, Polygon
 from shapely.ops import unary_union  # type: ignore
 from xarray import DataArray
 
@@ -121,12 +121,12 @@ def make_graph(
     return net, edges
 
 
-def convert_pixels_to_points(raster: Path, polygon: gpd.GeoSeries) -> gpd.GeoDataFrame:
+def convert_pixels_to_points(raster: Path, polygon_list: list[Polygon]) -> gpd.GeoDataFrame:
     """Converts raster pixels to points within a polygon
 
     Args:
         raster (Path): Contunuous raster data file path
-        polygon (gpd.GeoSeries): Boundary polygon to use to clip the raster
+        polygon_list (list[shapely.geometry.Polygon]): Boundary polygon to use to clip the raster
 
     Raises:
         ValueError: Raster must be in EPSG:4326
@@ -136,7 +136,7 @@ def convert_pixels_to_points(raster: Path, polygon: gpd.GeoSeries) -> gpd.GeoDat
     """
     raster_data = rioxarray.open_rasterio(raster)[0]
     assert isinstance(raster_data, DataArray)
-    raster_data_clipped = raster_data.rio.clip([polygon.geometry])
+    raster_data_clipped = raster_data.rio.clip(polygon_list)
     try:
         assert raster_data_clipped.rio.crs.to_string() == "EPSG:4326"
     except AssertionError:
@@ -193,7 +193,7 @@ def get_weighted_centroid(
         gdf = gdf.to_crs(4326)
     centroids = []
     for polygon in gdf.itertuples():
-        points = convert_pixels_to_points(raster, polygon)
+        points = convert_pixels_to_points(raster, [polygon.geometry])
         weighted_x = np.average(points.geometry.x, weights=points.Value)
         weighted_y = np.average(points.geometry.y, weights=points.Value)
         if not polygon.geometry.contains(Point(weighted_x, weighted_y)):
@@ -278,6 +278,38 @@ def make_incident_data(
     if outfile:
         gdf.to_file(Path(outfile), driver="GPKG")
     return gdf
+
+
+def make_incident_data_from_raster(
+    raster: Path | str,
+    roads: Path | str,
+    buffer_distance: int,
+    crs: int,
+    incident_out_file: Path | str | None = None,
+) -> gpd.GeoDataFrame:
+    """Extracts incident data from raster data within buffer of roads, saves as csv (optional) and returns geodataframe
+
+    Args:
+        raster (Path | str): Incident raster in EPSG:4326
+        roads (Path | str): Roads dataset in EPSG:4326 to be used as buffer
+        buffer_distance (int): Buffer distance in meters in which to extract incidents
+        crs (int): Spatial reference system
+        incident_out_file (Path | str): Output location for incident data csv
+
+    Returns:
+        gpd.GeoDataFrame: Points representing pixels in buffer
+    """
+    gdf_roads = gpd.read_file(Path(roads)).to_crs(f"EPSG:{crs}")
+    gdf_roads["geometry"] = gdf_roads.buffer(buffer_distance)
+    buffer_polygon = gdf_roads.to_crs(4326).unary_union
+    incident_data = convert_pixels_to_points(Path(raster), [buffer_polygon])
+    if incident_out_file:
+        df = incident_data.copy()
+        df["latitude"] = df.geometry.y
+        df["longitude"] = df.geometry.x
+        df.drop(columns=["geometry"], inplace=True)
+        df.to_csv(incident_out_file, index=False)
+    return incident_data.to_crs(f"EPSG:{crs}")
 
 
 def data_pre_processing(
