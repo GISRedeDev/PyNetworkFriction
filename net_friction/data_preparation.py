@@ -121,7 +121,9 @@ def make_graph(
     return net, edges
 
 
-def convert_pixels_to_points(raster: Path, polygon_list: list[Polygon]) -> gpd.GeoDataFrame:
+def convert_pixels_to_points(
+    raster: Path, polygon_list: list[Polygon]
+) -> gpd.GeoDataFrame:
     """Converts raster pixels to points within a polygon
 
     Args:

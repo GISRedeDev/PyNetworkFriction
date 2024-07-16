@@ -272,15 +272,9 @@ def test_make_incident_data_from_raster():
     crs = 6383
     out_file = "tests/test_data/data_prep/incidents_raster.csv"
     buffer = 1000
-    incidents = make_incident_data_from_raster(
-        raster,
-        roads,
-        buffer,
-        crs,
-        out_file)
+    incidents = make_incident_data_from_raster(raster, roads, buffer, crs, out_file)
     assert isinstance(incidents, gpd.GeoDataFrame)
 
     edges = gpd.read_file(roads).buffer(buffer).unary_union
     assert all(incidents.within(edges))
-    incidents.to_file("tests/test_data/CHECK_INCIDENTS.gpkg", driver="GPKG")
 
