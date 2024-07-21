@@ -277,4 +277,3 @@ def test_make_incident_data_from_raster():
 
     edges = gpd.read_file(roads).buffer(buffer).unary_union
     assert all(incidents.within(edges))
-
