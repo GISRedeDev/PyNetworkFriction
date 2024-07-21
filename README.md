@@ -8,31 +8,31 @@ The purpose of the `net-friction` package is to provide functionality to analyse
 
 1. Subset, prepare and save networks required for analysis.
 
-![Roads Network'](docs/img/full_roads_network.png "Full Road network")
+    ![Roads Network'](docs/img/full_roads_network.png "Full Road network")
 
 2. Create source and destination points as weighted or geometric centroids of boundary date for use in the calculation of pairwise distance matrices.
 
-<img src="./docs/img/geometric_centroid.png" alt="geom-centroid" style="width: 40%; display: inline-block;"/> 
-<img src="./docs/img/raster_weighted_centroid.png" alt="raster-weighted" style="width: 40%; display: inline-block;"/>
+    <img src="./docs/img/geometric_centroid.png" alt="geom-centroid" style="width: 40%; display: inline-block;"/> 
+    <img src="./docs/img/raster_weighted_centroid.png" alt="raster-weighted" style="width: 40%; display: inline-block;"/>
 
 3. Calculate pairwise routes between source and destination points and generate straightline and network distance matrices.
 
-<img src="./docs/img/edges.png" alt="edges" style="width: 40%; display: inline-block; vertical-align: middle;"/> 
-<img src="./docs/img/distances.png" alt="distance-matrix" style="width: 40%; display: inline-block; vertical-align: middle;"/>
+    <img src="./docs/img/edges.png" alt="edges" style="width: 40%; display: inline-block; vertical-align: middle;"/> 
+    <img src="./docs/img/distances.png" alt="distance-matrix" style="width: 40%; display: inline-block; vertical-align: middle;"/>
 
 4. Extract incidents for analysis from raster, csv or API.
 
-![Incidents](docs/img/incidents.png "ACLED Incidents as points")
+    ![Incidents](docs/img/incidents.png "ACLED Incidents as points")
 
 5. Spatially join incidents within given proximity of routes.
 
-!["Distances-to-Routes"](docs/img/incidents_in_route.png "ACLED incidents within 1000m of routes")
+    !["Distances-to-Routes"](docs/img/incidents_in_route.png "ACLED incidents within 1000m of routes")
 
 6. Aggregate incidents within buffer of respective routes and calculate their distance to the route.
 
 7. Summarise areas of control in both source and destination points.
 
-![AreasOfControl](docs/img/areas_of_control.png "Areas of Control Analysis")
+    ![AreasOfControl](docs/img/areas_of_control.png "Areas of Control Analysis")
 
 
 ## Description and suggested workflow
