@@ -16,6 +16,7 @@ from net_friction.data_preparation import (
     get_source_destination_points,
     get_weighted_centroid,
     make_graph,
+    make_incident_data_from_raster,
 )
 from net_friction.datatypes import WeightingMethod
 
@@ -72,7 +73,7 @@ def test_convert_pixels_to_points():
     gdf = gpd.read_file("tests/test_data/UKR_TEST_BOUNDARIES.gpkg")
     gdf = gdf[gdf.admin_level == 2]
     first_row = gdf.iloc[0]
-    result = convert_pixels_to_points(raster_path, first_row)
+    result = convert_pixels_to_points(raster_path, [first_row.geometry])
     assert isinstance(result, gpd.GeoDataFrame)
     assert result.crs == "EPSG:4326"
     assert -9999 not in result["Value"].unique()
@@ -263,3 +264,16 @@ def test_data_pre_processing():
     # Path(centroids_file).unlink()
     # Path(edges_file).unlink()
     # Path(acled_out_file).unlink()
+
+
+def test_make_incident_data_from_raster():
+    raster = "tests/test_data/ukr_ppp.tif"
+    roads = "tests/test_data/data_prep/edges.gpkg"
+    crs = 6383
+    out_file = "tests/test_data/data_prep/incidents_raster.csv"
+    buffer = 1000
+    incidents = make_incident_data_from_raster(raster, roads, buffer, crs, out_file)
+    assert isinstance(incidents, gpd.GeoDataFrame)
+
+    edges = gpd.read_file(roads).buffer(buffer).unary_union
+    assert all(incidents.within(edges))
