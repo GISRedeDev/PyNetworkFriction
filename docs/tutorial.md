@@ -15,39 +15,7 @@ To generate the outputs as intended by the package, the following input data is 
 
 ## Data Preparation
 
-### Incident data
-Any incident data in `EPSG:4326` can be used in csv format but must have `latitude` and `longitude` in point WKT format as columns. These incident data can be converted to a GeoDataFrame using `netfriction.data_preparation.make_incident_data`. There is also a helper function `netfriction.data_preparation.get_acled_data_from_api` to access ACLED data from the API, but users are required to have a key and email address registered with [ACLED](https://acleddata.com/).
-
-```python
-import pandas as pd
-from net_friction.data_preparation import get_acled_data_from_api, make_incident_data
-
-# Incident data
-csv = "incidents.csv"
-crs = 27700
-incident_df = pd.read_csv(csv)
-incident_gdf = get_incident_data(incident_df, crs)
-
-# ACLED DATA
-key = "secret_key"
-email = "user@github.com"
-country = "United Kingdom"
-start_date = "2024-01-31"
-end_date = "2024-02-05"
-crs = 27700
-accept_acled_terms = True
-incident_gdf = get_acled_data_from_api(
-    key,
-    email,
-    country,
-    start_date,
-    end_date,
-    crs,
-    accept_acled_terms
-)
-```
-
-### Roads / Network Data (incl Source/Destination Matrix)
+### 1. Roads / Network Data (incl Source/Destination Matrix)
 Roads data can be prepared by creating a weighted centroid object, opening the roads data and creating a graph and edges objects, along with a source/destination matrix dataframe.
 
 ```python
@@ -102,7 +70,54 @@ edges.to_file("edges.gpkg", driver="GPKG")
 ```
 **NOTE** There is a helper function to carry out the above preprocessing `net_friction.data_preparation.data_pre_processing`
 
-### Subset incident data within proximity of roads
+### 2. Incident data
+Any incident data in `EPSG:4326` can be used in csv format but must have `latitude` and `longitude` in point WKT format as columns. These incident data can be converted to a GeoDataFrame using `netfriction.data_preparation.make_incident_data`. There is also a helper function `netfriction.data_preparation.get_acled_data_from_api` to access ACLED data from the API, but users are required to have a key and email address registered with [ACLED](https://acleddata.com/).
+
+```python
+import pandas as pd
+from net_friction.data_preparation import get_acled_data_from_api, make_incident_data, make_incident_data_from_raster
+
+# Incident data
+csv = "incidents.csv"
+crs = 27700
+incident_df = pd.read_csv(csv)
+incident_gdf = get_incident_data(incident_df, crs)
+
+# ACLED DATA
+key = "secret_key"
+email = "user@github.com"
+country = "United Kingdom"
+start_date = "2024-01-31"
+end_date = "2024-02-05"
+crs = 27700
+accept_acled_terms = True
+incident_gdf = get_acled_data_from_api(
+    key,
+    email,
+    country,
+    start_date,
+    end_date,
+    crs,
+    accept_acled_terms
+)
+
+# Raster data in WGS84
+raster_path = "population.tif"
+roads = "edges.gpkg"
+buffer_distance = 1000
+crs = 27700
+incident_out_file = "population_within_1000m_of_routes.csv"
+incident_gdf = make_incident_data_from_raster(
+    raster=raster,
+    roads=roads,
+    buffer_distance=buffer_distance,
+    crs=crs,
+    incident_out_file=incident_out_file,
+)
+
+```
+
+### 3. Subset incident data within proximity of roads
 To discard incident data outside of your area of distance from the roads network, and thus improve performance, subsut the incident data.
 
 ```python
@@ -126,7 +141,7 @@ incidents_gdf = subset_incident_data_in_buffer(
 ## Network Analysis
 Once data has been prepared, the network analysis can be processed. Please note that if this analysis will be processed in multiple iterations or different periods, it is best to save some of the above outputs, and use these as inputs to the analysis. This will help to speed up the performance.
 
-### Calculate the distances
+### 1. Calculate the distances
 Distances along the network and in straight lines can be calculated between each source and destination pair.
 
 ```python
