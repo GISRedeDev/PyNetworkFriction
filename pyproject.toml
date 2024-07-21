@@ -19,6 +19,12 @@ dependencies = [
     "numpy==1.26.4",
 ]
 
+[project.urls]
+homepage = "https://network-friction.readthedocs.io/en/latest/"
+repository = "https://github.com/GISRedeDev/PyNetworkFriction"
+documentation = "https://network-friction.readthedocs.io/en/latest/"
+changelog = "https://github.com/GISRedeDev/PyNetworkFriction/blob/master/CHANGELOG.md"
+
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
