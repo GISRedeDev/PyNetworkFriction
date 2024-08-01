@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/781108812.svg)](https://zenodo.org/doi/10.5281/zenodo.12802400)
+
 # Network Friction
 The purpose of the `net-friction` package is to provide functionality to analyse input point or raster 'incident' data relative to their proximity of network routes, and more specifically, their proximity to pairwise route combinations in a network.
 
