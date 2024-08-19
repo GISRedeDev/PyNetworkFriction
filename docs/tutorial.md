@@ -22,7 +22,7 @@ Roads data can be prepared by creating a weighted centroid object, opening the r
 import geopandas as gpd
 from net_friction import data_preparation as prep
 from net_friction import datatypes as dt
-from net_fricetion import calculations as calc
+from net_friction import calculations as calc
 
 # Continuous raster for use in weighting
 raster = "population.tif"
@@ -31,15 +31,16 @@ boundaries = gpd.read_file("boundaries.gpkg")
 # Weighted centroid output file
 centroids = "boundary_centroids.gpkg"
 # Weighting method (CENTROID/WEIGHTED)
-weighting_method = df.WEIGHTED
+weighting_method = dt.WeightingMethod.WEIGHTED
 
 ### Open OSM roads
+crs = 6383
+roads = gpd.read_file("roads.gpkg")
 subset_fields = ["osm_id", "fclass"]  # Fields in OSM data
 subset_categories = ["motorway", "trunk", "primary", "secondary", "tertiary"]  # fclass in OSM data
 roads_gdf = prep.get_roads_data(roads, crs, subset_fields, subset_categories)
-
 # Crude topology fix
-roads_gdf = prep.fix_topology(roads, src, len_segments=1000)
+roads = prep.fix_topology(roads, crs, len_segments=1000)
 
 # Get network object and edges dataframe of full data
 net, edges = prep.make_graph(roads)
@@ -55,18 +56,15 @@ src_dst_points = prep.get_source_destination_points(
 )
 
 # Get shortest path nodes between source/destination pairs
-shortest_path_nodes, shortest_path_lengths = calculate_routes_and_route_distances(
-        net, source_dest_points
+shortest_path_nodes, shortest_path_lengths = calc.calculate_routes_and_route_distances(
+        net, src_dst_points
     )
-source_dest_points["shortest_path_nodes"] = shortest_path_nodes
+src_dst_points["shortest_path_nodes"] = shortest_path_nodes
 
 # Subset 'global' edges to edges between source and destination pairs
-route_geom_ids = get_route_geoms_ids(source_dest_points.copy(), edges)
+route_geom_ids = prep.get_route_geoms_ids(src_dst_points.copy(), edges)
 edge_ids = route_geom_ids.explode("edge_geometries_ids")["edge_geometries_ids"].unique()
-edges_subset = egdes[edges.index.isin(edge_ids)]
-
-# Save edges as future input for roads for improved performance
-edges.to_file("edges.gpkg", driver="GPKG")
+edges_subset = edges[edges.index.isin(edge_ids)]
 ```
 **NOTE** There is a helper function to carry out the above preprocessing `net_friction.data_preparation.data_pre_processing`
 
