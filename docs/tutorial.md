@@ -73,13 +73,7 @@ Any incident data in `EPSG:4326` can be used in csv format but must have `latitu
 
 ```python
 import pandas as pd
-from net_friction.data_preparation import get_acled_data_from_api, make_incident_data, make_incident_data_from_raster
-
-# Incident data
-csv = "incidents.csv"
-crs = 27700
-incident_df = pd.read_csv(csv)
-incident_gdf = get_incident_data(incident_df, crs)
+from net_friction.data_preparation import get_acled_data_from_api
 
 # ACLED DATA
 key = "secret_key"
@@ -99,20 +93,9 @@ incident_gdf = get_acled_data_from_api(
     accept_acled_terms
 )
 
-# Raster data in WGS84
-raster_path = "population.tif"
-roads = "edges.gpkg"
-buffer_distance = 1000
-crs = 27700
-incident_out_file = "population_within_1000m_of_routes.csv"
-incident_gdf = make_incident_data_from_raster(
-    raster=raster,
-    roads=roads,
-    buffer_distance=buffer_distance,
-    crs=crs,
-    incident_out_file=incident_out_file,
-)
-
+acled_outfile = 'acled.csv'
+incident_gdf.to_csv(acled_outfile, index=False)
+incident_gdf.to_file('acled.gpkg', driver='GPKG')
 ```
 
 ### 3. Subset incident data within proximity of roads
@@ -121,13 +104,15 @@ To discard incident data outside of your area of distance from the roads network
 ```python
 from net_friction.data_preparation import subset_incident_data_in_buffer
 
-incidents_outfile = "incidents_subset_in_buffer.csv"
+edges = gpd.read_file('edges.gpkg')
+incidents_file = 'incidents.csv'
+incidents_subset_outfile = "incidents_subset_in_buffer.csv"
 buffer_distance_in_meters = 1000
 
 incidents_gdf = subset_incident_data_in_buffer(
     edges,
-    csv,
-    incidents_outfile,
+    incidents_file,
+    incidents_subset_outfile,
     buffer_distance_in_meters,
     crs,
     is_acled=True,
