@@ -58,12 +58,12 @@ src_dst_points = prep.get_source_destination_points(
 
 # Get shortest path nodes between source/destination pairs
 shortest_path_nodes, shortest_path_lengths = calculate_routes_and_route_distances(
-        net, source_dest_points
+        net, src_dst_points
     )
-source_dest_points["shortest_path_nodes"] = shortest_path_nodes
+src_dst_points["shortest_path_nodes"] = shortest_path_nodes
 
 # Subset 'global' edges to edges between source and destination pairs
-route_geom_ids = get_route_geoms_ids(source_dest_points.copy(), edges)
+route_geom_ids = get_route_geoms_ids(src_dst_points.copy(), edges)
 edge_ids = route_geom_ids.explode("edge_geometries_ids")["edge_geometries_ids"].unique()
 edges_subset = egdes[edges.index.isin(edge_ids)]
 
@@ -165,7 +165,7 @@ src_dst_points["shortest_path_lengths"] = shortest_path_lengths
 # within the buffer distance from the respective network routes (i.e. Get incidents in buffer
 # from route)
 incidents_in_routes = calc.get_incidents_in_route_sjoin(
-        df_matrix, edges, acled, buffer_distance
+        src_dst_points, edges, acled, buffer_distance
     )
 
 # Calculate the distance in meters for each incident to each route where it lies within the buffer
@@ -175,7 +175,7 @@ incidents_in_routes_list = []
         ["from_pcode", "to_pcode"]
     ).groupby(level=[0, 1]):
         incidents_in_routes_list.append(
-            calc.get_distances_to_route(group_df, df_matrix, edges)
+            calc.get_distances_to_route(group_df, src_dst_points, edges)
         )
 incidents_in_routes_df = pd.concat(incidents_in_routes_list)
 
@@ -195,7 +195,7 @@ df_grouped = (
 # for the ACLED schema. Please see source code (net_friction.data_preparation.fill_missing_routes) to
 # see how your missing data can be filled in using different schemas 
 df_grouped_filled = prep.fill_missing_routes(
-    df_grouped, distances_df, date_start, date_end
+    df_grouped, src_dst_points, date_start, date_end
 )
 ```
 
