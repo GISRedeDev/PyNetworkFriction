@@ -16,7 +16,9 @@ To generate the outputs as intended by the package, the following input data is 
 ## Data Preparation
 
 ### 1. Roads / Network Data (incl Source/Destination Matrix)
-Roads data can be prepared by creating a weighted centroid object, opening the roads data and creating a graph and edges objects, along with a source/destination matrix dataframe.
+**Note** this package was designed with Open Street Map (OSM) road networks in mind, but can be used with any road networks. OSM networks can be downloaded from [GEOFABRIK](https://download.geofabrik.de/) or programatically using [PYROSM](https://pyrosm.readthedocs.io/en/latest/#).
+
+Roads data can be prepared by creating a weighted centroid object, opening the roads data and creating a graph and edges objects, along with a source/destination matrix dataframe. The centroids variable defined below refers to a previously-created point data centroid dataset to be used in defining source/destination points. If this does not exist, the centroids geometries will be created (using the chosen CENTROID or WEIGHTED method) and saved to this path for future use. 
 
 ```python
 import geopandas as gpd
@@ -118,7 +120,7 @@ incident_gdf = make_incident_data_from_raster(
 ```
 
 ### 3. Subset incident data within proximity of roads
-To discard incident data outside of your area of distance from the roads network, and thus improve performance, subsut the incident data.
+To discard incident data outside of your area of distance from the roads network, and thus improve performance, subset the incident data.
 
 ```python
 from net_friction.data_preparation import subset_incident_data_in_buffer

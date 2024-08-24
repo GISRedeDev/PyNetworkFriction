@@ -383,7 +383,7 @@ def subset_incident_data_in_buffer(
     is_acled: bool = True,
     index_col: str = "event_id_cnty",
 ) -> gpd.GeoDataFrame:
-    """Subset incidents to those within buffer of routes edges. If ACLED data is used, the function will subset
+    """Subset incidents to those within buffer of routes' edges. If ACLED data is used, the function will subset
     columns to those required for analysis.
 
     Args:
