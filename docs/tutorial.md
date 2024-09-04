@@ -24,7 +24,7 @@ Roads data can be prepared by creating a weighted centroid object, opening the r
 import geopandas as gpd
 from net_friction import data_preparation as prep
 from net_friction import datatypes as dt
-from net_fricetion import calculations as calc
+from net_friction import calculations as calc
 
 # Continuous raster for use in weighting
 raster = "population.tif"
@@ -41,7 +41,7 @@ subset_categories = ["motorway", "trunk", "primary", "secondary", "tertiary"]  #
 roads_gdf = prep.get_roads_data(roads, crs, subset_fields, subset_categories)
 
 # Crude topology fix
-roads_gdf = prep.fix_topology(roads, src, len_segments=1000)
+roads_gdf = prep.fix_topology(roads, crs, len_segments=1000)
 
 # Get network object and edges dataframe of full data
 net, edges = prep.make_graph(roads)
@@ -176,9 +176,7 @@ df_grouped = (
     .reset_index()
 )
 
-# Fill in rows (0 values) for routes that do not have incidents for specific days. This will only work
-# for the ACLED schema. Please see source code (net_friction.data_preparation.fill_missing_routes) to
-# see how your missing data can be filled in using different schemas 
+# Fill in rows (NaN values) for routes that do not have incidents for specific days. 
 df_grouped_filled = prep.fill_missing_routes(
     df_grouped, src_dst_points, date_start, date_end
 )
