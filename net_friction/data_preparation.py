@@ -402,7 +402,7 @@ def subset_incident_data_in_buffer(
     if is_acled:
         incident = get_acled_data_from_csv(Path(incident_data), crs)
     else:
-        make_incident_data(pd.read_csv(Path(incident_data)), crs)
+        incident = make_incident_data(pd.read_csv(Path(incident_data)), crs)
     incident_buffered = (
         incident.set_index(index_col).copy().buffer(buffer_distance).to_frame()
     )
@@ -524,7 +524,7 @@ def fill_missing_routes(
         date_end (str): End date in format "YYYY-MM-DD"
 
     Returns:
-        pd.DataFrame: Dataframe with missing pairwise combinations filled with zeros
+        pd.DataFrame: Dataframe with missing pairwise combinations filled with NaN
     """
     date_range = pd.date_range(start=date_start, end=date_end)
     dates_df = pd.DataFrame(date_range, columns=["event_date"])
@@ -542,6 +542,5 @@ def fill_missing_routes(
         on=["event_date", "from_pcode", "to_pcode"],
         how="left",
     )
-    full_df["incident_count"] = full_df["incident_count"].fillna(0)
-    full_df["total_fatalities"] = full_df["total_fatalities"].fillna(0)
+
     return full_df
