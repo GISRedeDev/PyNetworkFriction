@@ -402,7 +402,7 @@ def subset_incident_data_in_buffer(
     if is_acled:
         incident = get_acled_data_from_csv(Path(incident_data), crs)
     else:
-        make_incident_data(pd.read_csv(Path(incident_data)), crs)
+        incident = make_incident_data(pd.read_csv(Path(incident_data)), crs)
     incident_buffered = (
         incident.set_index(index_col).copy().buffer(buffer_distance).to_frame()
     )
